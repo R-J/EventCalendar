@@ -1,11 +1,15 @@
 <?php if (!defined('APPLICATION')) exit();
 
+// change this manually as long as there is no possibility in the dashboard!
+// you can find the number of your categories either in the db itself or in the dashboard, when you edit categories
+define('EVENTCALENDAR_CATEGORY', '5');
+
 $PluginInfo['EventCalendar'] = array(
   'Name' => 'EventCalendar',
   'Description' => 'Enable the usage of discussions in a certain category as events. ',
-   'Version' => '0.01',
+   'Version' => '0.01pre-alpha',
    'Author' => "Robin",
-   // 'HasLocale' => TRUE
+   'HasLocale' => TRUE
 );
 
 /*
@@ -13,13 +17,21 @@ $PluginInfo['EventCalendar'] = array(
 # TODO (order shows prio)
 
 ## create discussion
-1. insert fields for event date and event time
-2. save extra info to db
-3. change button text from "New Discussion" to "New Event"
+done 1. insert fields for event date and event time
+done 2. save extra info to db
+current 3. allow only for category from settings
+4. validate input
+(X. change button text from "New Discussion" to "New Event")
+
 
 
 ## read discussion
 1. show extra info (date and time) below <div class="Tabs HeadingTabs EventTabs FirstPage">
+
+
+## event input only in "right" category
+1. disable extra event fields per css or javascript if not the event category is chosen
+2. check for right category after POST
 
 
 ## create category listings 
@@ -75,6 +87,7 @@ b) possibility to export and import events
 class EventCalendar implements Gdn_IPlugin {
 
   public function Setup() {
+    // Create new table for additional event info
     $Structure = Gdn::Structure();
     $Structure->Table('EventCalendar_Event')
       ->PrimaryKey('EventID')
@@ -82,22 +95,57 @@ class EventCalendar implements Gdn_IPlugin {
       ->Column('EventDate', 'date', FALSE)
       ->Column('EventTime', 'varchar(32)', TRUE)
       ->Set(FALSE, FALSE);
-  }
+    // set config value
+    SaveToConfig('Plugins.EventCalendar.EventCategory', EVENTCALENDAR_CATEGORY, array(TRUE, FALSE));
+  } // End of Setup
+  
   public function PostController_BeforeBodyInput_Handler($Sender) {
+ 
     echo '<div class="EventCalendarFields">';
-    echo Wrap($Sender->Discussion->CategoryID, 'h1');
+
+    // Input for Event Date
     echo $Sender->Form->Label('Event Date', 'Date');
-    echo Wrap($Sender->Form->TextBox('Date', array('type' => 'date', 'class' => 'InputBox DateBox'))
+    echo Wrap($Sender->Form->TextBox('EventDate', array('type' => 'date', 'class' => 'DateBox', 'required' => 'required', 'placeholder' => T('YYYY-MM-DD')))
       , 'div'
       , array('class' => 'TextBoxWrapper')
     );
     
+    // Input for Event time
     echo $Sender->Form->Label('Event Time', 'Time');
-    echo Wrap($Sender->Form->TextBox('Time', array('class' => 'InputBox SmallInput'))
+    echo Wrap($Sender->Form->TextBox('EventTime', array('class' => 'InputBox SmallInput', 'placeholder' => T('e.g. afternoon, 8pm, 13:30,...')))
       , 'div'
       , array('class' => 'TextBoxWrapper')
     );
     echo '</div>';
-  }
+  } // End of PostController_BeforeBodyInput_Handler
   
-}
+  public function PostController_AfterDiscussionSave_Handler($Sender) {
+    // AfterDiscussionSave is a bad place to hook, so all error checkings must be done on client side with js :-(
+    // Furthermore there is no way to give the user a feedback that insert process hasn't worked
+  
+    // get CategoryID in order to check if event posting is allowed in discussions category
+    $DiscussionID = $Sender->GetJson()['DiscussionID'];
+    $CategoryID = $Sender->DiscussionModel->GetID($DiscussionID)->CategoryID;
+    if ($CategoryID == C('Plugins.EventCalendar.EventCategory')) {
+// debug
+// if (TRUE) {
+      $EventDate = $Sender->Form->GetFormValue('EventDate', '0000-00-00');
+      $EventTime = $Sender->Form->GetFormValue('EventTime', '');
+
+      Gdn::SQL()->Insert('EventCalendar_Event', array(
+        'EventDate' => $EventDate
+        , 'EventTime' => $EventTime
+        , 'DiscussionID' => $DiscussionID
+      ));
+    }  
+
+// debug
+$strdebug = 'catid='.gettype($CategoryID).'!';
+Gdn::SQL()
+->Update('EventCalendar_Event')
+->Set('EventTime', $strdebug)
+->Where('EventID', 14)
+->Put();
+
+  } // End of PostController_AfterDiscussionSave_Handler
+} // End of class EventCalendar
