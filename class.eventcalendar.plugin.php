@@ -26,12 +26,12 @@ current 3. allow only for category from settings
 
 
 ## read discussion
-1. show extra info (date and time) below <div class="Tabs HeadingTabs EventTabs FirstPage">
+done 1. show extra info (date and time) below <div class="Tabs HeadingTabs EventTabs FirstPage">
 
 
 ## event input only in "right" category
 1. disable extra event fields per css or javascript if not the event category is chosen
-2. check for right category after POST
+current 2. check for right category after POST
 
 
 ## create category listings 
@@ -55,9 +55,9 @@ current 3. allow only for category from settings
 
 
 ## edit discussion
-1. show extra fields
-2. prefill the wih values from db
-3. save to db
+done 1. show extra fields
+done 2. prefill the wih values from db
+done 3. save to db
 
 
 ## delete discussion
@@ -85,67 +85,120 @@ b) possibility to export and import events
   
 */
 class EventCalendar implements Gdn_IPlugin {
+    // create table and init config values
+    public function Setup() {
+        // Create new table for additional event info
+        $Structure = Gdn::Structure();
+        $Structure->Table('EventCalendar_Event')
+            ->PrimaryKey('EventID')
+            ->Column('DiscussionID', 'int', FALSE)
+            ->Column('EventDate', 'date', FALSE)
+            ->Column('EventTime', 'varchar(32)', TRUE)
+            ->Column('EventDebug', 'varchar(320)', TRUE)
+            ->Set(FALSE, FALSE);
+        // set config value
+      SaveToConfig('Plugins.EventCalendar.EventCategory', EVENTCALENDAR_CATEGORY, array(TRUE, FALSE));
+    } // End of Setup
 
-  public function Setup() {
-    // Create new table for additional event info
-    $Structure = Gdn::Structure();
-    $Structure->Table('EventCalendar_Event')
-      ->PrimaryKey('EventID')
-      ->Column('DiscussionID', 'int', FALSE)
-      ->Column('EventDate', 'date', FALSE)
-      ->Column('EventTime', 'varchar(32)', TRUE)
-      ->Set(FALSE, FALSE);
-    // set config value
-    SaveToConfig('Plugins.EventCalendar.EventCategory', EVENTCALENDAR_CATEGORY, array(TRUE, FALSE));
-  } // End of Setup
-  
-  public function PostController_BeforeBodyInput_Handler($Sender) {
- 
-    echo '<div class="EventCalendarFields">';
+    // add css
+    public function DiscussionController_BeforeDiscussionRender_Handler($Sender) {
+        $Sender->AddCssFile('custom.css', 'plugins/EventCalendar/design');
+    } // End of DiscussionController_BeforeDiscussionRender_Handler
 
-    // Input for Event Date
-    echo $Sender->Form->Label('Event Date', 'Date');
-    echo Wrap($Sender->Form->TextBox('EventDate', array('type' => 'date', 'class' => 'DateBox', 'required' => 'required', 'placeholder' => T('YYYY-MM-DD')))
-      , 'div'
-      , array('class' => 'TextBoxWrapper')
-    );
+    // Show Event information in discussion
+    public function DiscussionController_BeforeCommentBody_Handler($Sender) {
+        // only show in discussion, not in comments!
+        if ($Sender->EventArguments['Type'] != 'Discussion') {
+            return;
+        }
+
+        $DiscussionID = $Sender->EventArguments['Object']->DiscussionID;
+        $EventCalendar_Event = Gdn::SQL()->Select('*')
+            ->From('EventCalendar_Event')
+            ->Where('DiscussionID', $DiscussionID)
+            ->Get()
+            ->FirstRow();
+        echo '<div id="EventCalendar_Container">';
+        echo Wrap('Event Date: '.date(T('d.m.Y'), strtotime($EventCalendar_Event->EventDate).'T00:00:00'),'div', array('class' => 'EventDate'));
+        echo Wrap('Event Time: '.$EventCalendar_Event->EventTime, 'div', array('class' => 'EventTime'));
+        echo '</div>';
+
+    } // End of DiscussionController_AfterCommentMeta_Handler
     
-    // Input for Event time
-    echo $Sender->Form->Label('Event Time', 'Time');
-    echo Wrap($Sender->Form->TextBox('EventTime', array('class' => 'InputBox SmallInput', 'placeholder' => T('e.g. afternoon, 8pm, 13:30,...')))
-      , 'div'
-      , array('class' => 'TextBoxWrapper')
-    );
-    echo '</div>';
-  } // End of PostController_BeforeBodyInput_Handler
+    // Add Form Fields to "New Discussion" and "Edit Discussion" (it's the same!) 
+    public function PostController_BeforeBodyInput_Handler($Sender) {
+        echo '<div class="EventCalendarFields">';
+
+        // Input for Event Date
+        echo $Sender->Form->Label('Event Date', 'Date');
+        echo Wrap($Sender->Form->TextBox('EventDate', array('type' => 'date', 'class' => 'DateBox', 'required' => 'required', 'placeholder' => date(T('d.m.Y'), getdate())))
+            , 'div'
+            , array('class' => 'TextBoxWrapper')
+        );
+
+        // Input for Event time
+        echo $Sender->Form->Label('Event Time', 'Time');
+        echo Wrap($Sender->Form->TextBox('EventTime', array('class' => 'InputBox SmallInput', 'placeholder' => T('e.g. afternoon, 8pm, 13:30,...')))
+            , 'div'
+            , array('class' => 'TextBoxWrapper')
+        );
+        echo '</div>';
+    } // End of PostController_BeforeBodyInput_Handler
+
+    // join eventcalendar tables to show them automagically in edit discussion
+    public function DiscussionModel_BeforeGet_Handler($Sender) {
+        if (C('Plugins.EventCalendar.Enabled')) { 
+            $Sender->SQL->Select('ec.EventTime, ec.EventDate')
+                ->Join('EventCalendar_Event ec', 'ec.DiscussionID = d.DiscussionID', 'left');
+        }
+    } // End of DiscussionModel_BeforeGet_Handler
+
+    // Validate inputs
+    public function DiscussionModel_BeforeSaveDiscussion_Handler($Sender) {
+        // und categoryid <> config und vielleicht noch controller = discussioncontroller?
+        if (!C('Plugins.EventCalendar.Enabled')) {
+            return;
+        }
+
+        $FormPostValues = GetValue('FormPostValues', $Sender->EventArguments);
+        $EventDate = GetValue('EventDate', $FormPostValues, '');
+        // $EventTime = GetValue('EventTime', $FormPostValues, '');
+    } // End of DiscussionModel_BeforeSaveDiscussion_Handler
+    
+    // store new and edited values
+    public function DiscussionModel_AfterSaveDiscussion_Handler($Sender) {
+        // get what has been entered
+        $FormPostValues = GetValue('FormPostValues', $Sender->EventArguments);
+        $CategoryID = GetValue('CategoryID', $FormPostValues);
+
+        if ($CategoryID != C('Plugins.EventCalendar.EventCategory')) {
+          return;
+        }
+        
+        // marker if this is a new discussion or a correction of an existing one
+        $IsNewDiscussion = GetValue('IsNewDiscussion', $FormPostValues);
+        $DiscussionID = GetValue('DiscussionID', $FormPostValues);
+        $EventDate = GetValue('EventDate', $FormPostValues);
+        $EventTime = GetValue('EventTime', $FormPostValues);
+        
+        if ($IsNewDiscussion) {
+            // do an INSERT for a new discussion
+            Gdn::SQL()->Insert('EventCalendar_Event', array(
+                'EventDate' => Gdn_Format::Text($EventDate),
+                'EventTime' => Gdn_Format::Text($EventTime),
+                'DiscussionID' => $DiscussionID
+            ));
+        } else {
+            // and an UPDATE for an existing one
+            Gdn::SQL()->Update('EventCalendar_Event')
+                ->Set('EventDate', Gdn_Format::Text($EventDate))
+                ->Set('EventTime', Gdn_Format::Text($EventTime))
+                ->Where('DiscussionID', $DiscussionID)
+                ->Put();
+        }
+    } // End of DiscussionModel_AfterSaveDiscussion_Handler
+
+
   
-  public function PostController_AfterDiscussionSave_Handler($Sender) {
-    // AfterDiscussionSave is a bad place to hook, so all error checkings must be done on client side with js :-(
-    // Furthermore there is no way to give the user a feedback that insert process hasn't worked
-  
-    // get CategoryID in order to check if event posting is allowed in discussions category
-    $DiscussionID = $Sender->GetJson()['DiscussionID'];
-    $CategoryID = $Sender->DiscussionModel->GetID($DiscussionID)->CategoryID;
-    if ($CategoryID == C('Plugins.EventCalendar.EventCategory')) {
-// debug
-// if (TRUE) {
-      $EventDate = $Sender->Form->GetFormValue('EventDate', '0000-00-00');
-      $EventTime = $Sender->Form->GetFormValue('EventTime', '');
 
-      Gdn::SQL()->Insert('EventCalendar_Event', array(
-        'EventDate' => $EventDate
-        , 'EventTime' => $EventTime
-        , 'DiscussionID' => $DiscussionID
-      ));
-    }  
-
-// debug
-$strdebug = 'catid='.gettype($CategoryID).'!';
-Gdn::SQL()
-->Update('EventCalendar_Event')
-->Set('EventTime', $strdebug)
-->Where('EventID', 14)
-->Put();
-
-  } // End of PostController_AfterDiscussionSave_Handler
 } // End of class EventCalendar
