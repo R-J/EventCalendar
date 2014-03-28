@@ -1,204 +1,277 @@
-<?php if (!defined('APPLICATION')) exit();
-
-// change this manually as long as there is no possibility in the dashboard!
-// you can find the number of your categories either in the db itself or in the dashboard, when you edit categories
-define('EVENTCALENDAR_CATEGORY', '5');
-
-$PluginInfo['EventCalendar'] = array(
-  'Name' => 'EventCalendar',
-  'Description' => 'Enable the usage of discussions in a certain category as events. ',
-   'Version' => '0.01pre-alpha',
-   'Author' => "Robin",
-   'HasLocale' => TRUE
-);
-
-/*
-
-# TODO (order shows prio)
-
-## create discussion
-done 1. insert fields for event date and event time
-done 2. save extra info to db
-current 3. allow only for category from settings
-4. validate input
-(X. change button text from "New Discussion" to "New Event")
-
-
-
-## read discussion
-done 1. show extra info (date and time) below <div class="Tabs HeadingTabs EventTabs FirstPage">
-
-
-## event input only in "right" category
-1. disable extra event fields per css or javascript if not the event category is chosen
-current 2. check for right category after POST
-
-
-## create category listings 
-1. /categories/events/month/mm/yyyy
-2. /categories/events/week/dd/mm/yyyy
-3. /categories/events/day/dd/mm/yyyy
-4. /categories/events/ sort order should be by event date
-5. discussion title prefixed by eventdate: discussiontitle
-6. change button text from "New Discussion" to "New Event"
-
-
-## create modules
-1. upcoming X events (X should be configurable)
-2. calendar with link to daily view (link for each day with event) and monthly view (month is a link)
-<|      month     |>
- 1  2  3  4  5  6  7
- 8  9 10 11 12 13 14
-15 16 17 18 19 20 21
-22 23 24 25 26 27 28
-29 30 31
-
-
-## edit discussion
-done 1. show extra fields
-done 2. prefill the wih values from db
-done 3. save to db
-
-
-## delete discussion
-1. delete also from EventCalendar_* tables
-
-
-## config settings in dashboard. start with setting them manually :-/
-1. category number to be treated as event category
-  $Configuration['Plugins']['EventCalendar']['EventCategory'] = ???;
-2. module upcoming events: how much events to show
-  $Configuration['Plugins']['EventCalendar']['UpcomingEventsCount'] = ???;
-
-
-## possibility for cleanup
-OnDisable must show a warning!
-one of those in order not to lose data if plugin has to be disabled
-a) EventCalendar_* tables will only be deleteted when chosen in a special subsection of dashboard
-b) possibility to export and import events
-
-  
-# ALREADY DONE!
-
-## structure
-1. create table for additional event info (EventCalendar_Event)
-  
-*/
-class EventCalendar implements Gdn_IPlugin {
-    // create table and init config values
-    public function Setup() {
-        // Create new table for additional event info
-        $Structure = Gdn::Structure();
-        $Structure->Table('EventCalendar_Event')
-            ->PrimaryKey('EventID')
-            ->Column('DiscussionID', 'int', FALSE)
-            ->Column('EventDate', 'date', FALSE)
-            ->Column('EventTime', 'varchar(32)', TRUE)
-            ->Column('EventDebug', 'varchar(320)', TRUE)
-            ->Set(FALSE, FALSE);
-        // set config value
-      SaveToConfig('Plugins.EventCalendar.EventCategory', EVENTCALENDAR_CATEGORY, array(TRUE, FALSE));
-    } // End of Setup
-
-    // add css
-    public function DiscussionController_BeforeDiscussionRender_Handler($Sender) {
-        $Sender->AddCssFile('custom.css', 'plugins/EventCalendar/design');
-    } // End of DiscussionController_BeforeDiscussionRender_Handler
-
-    // Show Event information in discussion
-    public function DiscussionController_BeforeCommentBody_Handler($Sender) {
-        // only show in discussion, not in comments!
-        if ($Sender->EventArguments['Type'] != 'Discussion') {
-            return;
-        }
-
-        $DiscussionID = $Sender->EventArguments['Object']->DiscussionID;
-        $EventCalendar_Event = Gdn::SQL()->Select('*')
-            ->From('EventCalendar_Event')
-            ->Where('DiscussionID', $DiscussionID)
-            ->Get()
-            ->FirstRow();
-        echo '<div id="EventCalendar_Container">';
-        echo Wrap('Event Date: '.date(T('d.m.Y'), strtotime($EventCalendar_Event->EventDate).'T00:00:00'),'div', array('class' => 'EventDate'));
-        echo Wrap('Event Time: '.$EventCalendar_Event->EventTime, 'div', array('class' => 'EventTime'));
-        echo '</div>';
-
-    } // End of DiscussionController_AfterCommentMeta_Handler
-    
-    // Add Form Fields to "New Discussion" and "Edit Discussion" (it's the same!) 
-    public function PostController_BeforeBodyInput_Handler($Sender) {
-        echo '<div class="EventCalendarFields">';
-
-        // Input for Event Date
-        echo $Sender->Form->Label('Event Date', 'Date');
-        echo Wrap($Sender->Form->TextBox('EventDate', array('type' => 'date', 'class' => 'DateBox', 'required' => 'required', 'placeholder' => date(T('d.m.Y'), getdate())))
-            , 'div'
-            , array('class' => 'TextBoxWrapper')
-        );
-
-        // Input for Event time
-        echo $Sender->Form->Label('Event Time', 'Time');
-        echo Wrap($Sender->Form->TextBox('EventTime', array('class' => 'InputBox SmallInput', 'placeholder' => T('e.g. afternoon, 8pm, 13:30,...')))
-            , 'div'
-            , array('class' => 'TextBoxWrapper')
-        );
-        echo '</div>';
-    } // End of PostController_BeforeBodyInput_Handler
-
-    // join eventcalendar tables to show them automagically in edit discussion
-    public function DiscussionModel_BeforeGet_Handler($Sender) {
-        if (C('Plugins.EventCalendar.Enabled')) { 
-            $Sender->SQL->Select('ec.EventTime, ec.EventDate')
-                ->Join('EventCalendar_Event ec', 'ec.DiscussionID = d.DiscussionID', 'left');
-        }
-    } // End of DiscussionModel_BeforeGet_Handler
-
-    // Validate inputs
-    public function DiscussionModel_BeforeSaveDiscussion_Handler($Sender) {
-        // und categoryid <> config und vielleicht noch controller = discussioncontroller?
-        if (!C('Plugins.EventCalendar.Enabled')) {
-            return;
-        }
-
-        $FormPostValues = GetValue('FormPostValues', $Sender->EventArguments);
-        $EventDate = GetValue('EventDate', $FormPostValues, '');
-        // $EventTime = GetValue('EventTime', $FormPostValues, '');
-    } // End of DiscussionModel_BeforeSaveDiscussion_Handler
-    
-    // store new and edited values
-    public function DiscussionModel_AfterSaveDiscussion_Handler($Sender) {
-        // get what has been entered
-        $FormPostValues = GetValue('FormPostValues', $Sender->EventArguments);
-        $CategoryID = GetValue('CategoryID', $FormPostValues);
-
-        if ($CategoryID != C('Plugins.EventCalendar.EventCategory')) {
-          return;
-        }
-        
-        // marker if this is a new discussion or a correction of an existing one
-        $IsNewDiscussion = GetValue('IsNewDiscussion', $FormPostValues);
-        $DiscussionID = GetValue('DiscussionID', $FormPostValues);
-        $EventDate = GetValue('EventDate', $FormPostValues);
-        $EventTime = GetValue('EventTime', $FormPostValues);
-        
-        if ($IsNewDiscussion) {
-            // do an INSERT for a new discussion
-            Gdn::SQL()->Insert('EventCalendar_Event', array(
-                'EventDate' => Gdn_Format::Text($EventDate),
-                'EventTime' => Gdn_Format::Text($EventTime),
-                'DiscussionID' => $DiscussionID
-            ));
-        } else {
-            // and an UPDATE for an existing one
-            Gdn::SQL()->Update('EventCalendar_Event')
-                ->Set('EventDate', Gdn_Format::Text($EventDate))
-                ->Set('EventTime', Gdn_Format::Text($EventTime))
-                ->Where('DiscussionID', $DiscussionID)
-                ->Put();
-        }
-    } // End of DiscussionModel_AfterSaveDiscussion_Handler
-
-
-  
-
-} // End of class EventCalendar
+<?php if (!defined('APPLICATION')) exit();
+
+/**
+ * EventCalendar Plugin
+ * 
+ * @author Robin
+ * @license http://opensource.org/licenses/MIT
+ */
+$PluginInfo['EventCalendar'] = array(
+   'Name' => 'Event Calendar',
+   'Description' => 'Adds an event date field to new discussions so that they can be treated as events',
+   'Version' => '0.1',
+   'RequiredApplications' => array('Vanilla' => '>=2.0.18'),
+   'SettingsUrl' => '/settings/eventcalendar',   
+   'RequiredPlugins' => FALSE,
+   'RequiredTheme' => FALSE,
+   'MobileFriendly' => TRUE,
+   'HasLocale' => TRUE,
+   'RegisterPermissions' => FALSE,
+   'RegisterPermissions' => array('Plugins.EventCalendar.Add',
+      'Plugins.EventCalendar.Manage',
+      'Plugins.EventCalendar.Notify',
+      'Plugins.EventCalendar.View'),
+   'Author' => 'Robin'
+);
+
+/**
+ * Plugin to add date field to New Discussion
+ *
+ * New discussions could be entered with an "event date".
+ * Plugin creates additional views where such discussions are shown on a calendar
+ */
+class EventCalendarPlugin extends Gdn_Plugin {
+   
+   /**
+    * Make initial changes to Garden
+    */   
+   public function Setup() {
+      $this->Structure();
+      // sets route to eventcalendar
+      $Router = Gdn::Router();
+      $PluginPage = 'vanilla/eventcalendar$1';
+      $NewRoute = '^eventcalendar(/.*)?$';
+      if(!$Router->MatchRoute($NewRoute)) {
+         $Router->SetRoute($NewRoute, $PluginPage, 'Internal');
+      }
+   } // End of Setup
+
+   /**
+    * Adds column for event date to table Discussion
+    */   
+   public function Structure() {
+      $Structure =  Gdn::Structure();
+      $Structure->Table('Discussion')
+         ->Column('EventCalendarDate', 'date', TRUE)
+         ->Set(FALSE, FALSE);
+   } // End of Structure
+
+   /**
+    * Reset some changes made by the plugin
+    */ 
+   public function OnDisable() {
+      // deletes custom route
+      Gdn::Router()-> DeleteRoute('^eventcalendar(/.*)?$');
+   }
+
+   /**
+    * Allows customization of categories which allow new discussions to be events 
+    * Sets config value Plugins.EventCalendar.CategoryIDs
+    *
+    * @param object $Sender SettingsController
+    */   
+   public function SettingsController_EventCalendar_Create($Sender) {
+      $Sender->Permission('Garden.Settings.Manage');
+      $Sender->Title(T('Event Calendar Settings'));
+      $Sender->AddSideMenu('settings/EventCalendar');
+      $Sender->SetData('Info', T('Event Calendar Info', 'Creation of events can be regulated by category <strong>and</strong> user role. You can set up the categories here, but don\'t forget to assign some permissions in the <a href="/index.php?p=dashboard/role">standard permission section</a> in the dashboard, otherwise you users wouldn\'t be able to use this plugin!'));
+      $Sender->SetData('CategoriesLabel', 'Please choose categories in which the creation of events should be allowed');
+
+      $Validation = new Gdn_Validation();
+      // $Validation->ApplyRule('Plugins.EventCalendar.CategoryIDs', 'RequiredArray', T('You have to choose at least one category. If you don\'t want to use the plugin any longer, please deactivate it'));
+      $ConfigurationModel = new Gdn_ConfigurationModel($Validation);
+      $ConfigurationModel->SetField(array('Plugins.EventCalendar.CategoryIDs'));
+
+      $Form = $Sender->Form;
+      $Sender->Form->SetModel($ConfigurationModel);
+
+      if ($Sender->Form->AuthenticatedPostBack() != FALSE) {
+         if ($Sender->Form->Save() != FALSE) {
+            $Sender->StatusMessage = T('Saved');
+         }
+      } else {
+         $Sender->Form->SetData($ConfigurationModel->Data);
+      }
+
+      $CategoryModel = new Gdn_Model('Category');
+      $Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1, 'CategoryID <>' => -1));
+      $Sender->EventCategory = C('Plugins.EventCalendar.CategoryIDs');
+
+      $Sender->Render('settings', '', 'plugins/EventCalendar');
+   } // End of SettingsController_EventCalendar_Create
+
+
+   /**
+    * Adds menu entry for calendar
+    *
+    * @param object $Sender Base Controller
+    */   
+   public function Base_Render_Before($Sender) {
+      if(CheckPermission('Plugins.EventCalendar.View') && $Sender->Menu) {
+         $Sender->Menu->AddLink(T('Event Calendar'), T('EventCalendar'), 'eventcalendar');
+      }
+   }
+   
+   /**
+    * Adds input fields to new discussion form
+    * Check's for CategoryID, Add and Manage category
+    * Allows creation of events in current and next year
+    * Datefield is prefilled with current date by eventcalendar.js
+    *
+    * @param object $Sender PostController
+    */ 
+   public function PostController_BeforeBodyInput_Handler($Sender) {
+      if(!CheckPermission(array('Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'))) {
+         return;
+      }
+
+      $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
+      $Sender->AddDefinition('EventCalendarCategoryIDs', json_encode(C('Plugins.EventCalendar.CategoryIDs')));
+
+      // initially don't hide elements in allowed categories
+      $CategoryID = $Sender->Discussion->CategoryID;
+      if (!in_array($CategoryID, C('Plugins.EventCalendar.CategoryIDs'))) {
+         $Hidden = ' Hidden';   
+      }
+
+      $Year = date('Y');
+      $YearRange = $Year.'-'.($Year + 1);
+
+      $HtmlOut = <<< EOT
+<div class="P EventCalendarInput{$Hidden}">
+   {$Sender->Form->Label('Event Date', 'EventCalendarDate')}
+   {$Sender->Form->Date('EventCalendarDate', array('YearRange' => $YearRange, 'fields' => array('day', 'month', 'year')))}
+</div>
+EOT;
+      echo $HtmlOut;
+   } // End of PostController_BeforeBodyInput_Handler
+
+   /**
+    *  Add Validation for event date and check permissions
+    *
+    * @param object $Sender DiscussionModel
+    */
+   public function DiscussionModel_BeforeSaveDiscussion_Handler($Sender) {
+      $Session = Gdn::Session();
+      $CategoryID = $Sender->EventArguments['FormPostValues']['CategoryID'];
+
+      // Reset event date and return if wrong category or no right to add event
+      if (!in_array($CategoryID, C('Plugins.EventCalendar.CategoryIDs')) || !$Session->CheckPermission(array('Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'))) {
+         $Sender->EventArguments['FormPostValues']['EventCalendarDate'] = '';
+         return;
+      }
+
+      // Add custom validation text
+      $Sender->Validation->ApplyRule('EventCalendarDate', 'Required', T('Please enter an event date'));
+      $Sender->Validation->ApplyRule('EventCalendarDate', 'Date', T('The event date you\'ve entered is invalid'));
+   } // End of DiscussionModel_BeforeSaveDiscussion_Handler
+
+   /**
+    * Returns nicely formatted html for an event date 
+    *
+    * @param date $EventDate Date of the event
+    * @return string html string showing the event date (translatable)
+    */ 
+   private function FormatEventCalendarDate($EventDate, $IncludeIcon = FALSE) {
+      if(!CheckPermission(array('Plugins.EventCalendar.View'))) {
+         return;
+      }
+      if ($EventDate != '0000-00-00') {
+         if ($IncludeIcon) {
+            $Icon = '<img src="'.SmartAsset('/plugins/EventCalendar/design/images', TRUE).'/eventcalendar.png" />';
+         } else {
+            $Icon = '';
+         }
+         return Gdn_Format::Date($EventDate, T('EventCalendarDateFormat', "<div id=\"EventCalendarDate\">{$Icon}On %A, %e. %B %Y</div>"));
+      }
+   } // End of FormatEventCalendarDate
+
+   /**
+    * Add event date to discussion title in discussion
+    *
+    * @param object $Sender DiscussionController
+    */    
+   public function DiscussionController_AfterDiscussionTitle_Handler($Sender, $Args) {
+      echo $this->FormatEventCalendarDate($Sender->EventArguments['Discussion']->EventCalendarDate, TRUE);
+   }
+
+   /**
+    * Add event date to discussion title in discussions overview
+    *
+    * @param object $Sender DiscussionsController
+    */    
+   public function DiscussionsController_AfterDiscussionTitle_Handler($Sender){
+      echo $this->FormatEventCalendarDate($Sender->EventArguments['Discussion']->EventCalendarDate, TRUE);
+   }
+
+   /**
+    * Add event date to discussion title in categories overview
+    *
+    * @param object $Sender CategoriesController
+    */    
+   public function CategoriesController_AfterDiscussionTitle_Handler($Sender){
+      echo $this->FormatEventCalendarDate($Sender->EventArguments['Discussion']->EventCalendarDate);
+   }
+
+   /**
+    * Handles different views (only monthly overview by now)
+    *
+    * @param object $Sender VanillaController
+    * @param array $Args /Year/Month to show
+    */    
+   public function VanillaController_EventCalendar_Create($Sender, $Args = array()) {
+      $Sender->Permission('Plugins.EventCalendar.View');
+      
+      $Sender->ClearCssFiles();
+      $Sender->AddCssFile('style.css');
+      $Sender->AddCssFile('eventcalendar.css', 'plugins/EventCalendar');
+      $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
+      $Sender->MasterView = 'default';
+      $Sender->AddModule('NewDiscussionModule');
+      $Sender->AddModule('CategoriesModule');
+      $Sender->AddModule('BookmarkedModule');
+
+      // only show current year +/- 1
+      $Year = $Args[0];
+      $CurrentYear = date('Y');
+      if ($Year < $CurrentYear -1 || $Year > $CurrentYear + 1) {
+         $Year = $CurrentYear;
+      }
+      // sanitize month
+      $Month = sprintf("%02s", $Args[1]);
+      if ($Month < 1 || $Month > 12) {
+         $Month = date('m');
+      }
+
+      $MonthFirst = mktime(0, 0, 0, $Month, 1, $Year);
+      $DaysInMonth = date('t', $MonthFirst);
+      $MonthLast = mktime(0, 0, 0, $Month, $DaysInMonth, $Year);
+      $Sender->CanonicalUrl(Url('eventcalendar', TRUE));
+      $Sender->SetData('Title', T('Event Calendar'));
+      $Sender->SetData('Breadcrumbs', array(array('Name' => T('Event Calendar'), 'Url' => '/eventcalendar')));
+      $Sender->SetData('Month', $Month);
+      $Sender->SetData('Year', $Year);
+      $Sender->SetData('MonthFirst', $MonthFirst);
+      $Sender->SetData('MonthLast', $MonthLast);
+      $Sender->SetData('PreviousMonth', date('Y', $MonthFirst - 1).'/'.date('m', $MonthFirst - 1));
+      $Sender->SetData('NextMonth', date('Y', $MonthLast + 86400).'/'.date('m', $MonthLast + 86400));
+      $Sender->SetData('DaysInMonth', $DaysInMonth);
+      $Sender->SetData('Events', EventCalendarModel::Get("{$Year}-{$Month}-01", "{$Year}-{$Month}-{$DaysInMonth}"));
+
+      $ViewName = 'month';
+      $Sender->Render($ViewName, '', 'plugins/EventCalendar');
+   }
+}
+
+/*
+
+<div class="Overlay" style="height: 6282px;">     <div class="Popup" id="Popup" style="top: 130.4px; left: 0px;">       <div class="Border">         <div class="Body">           <div class="Content" style="display: block;">
+<h1>Delete Discussion</h1>
+
+<form action="/discussion/delete?discussionid=60&amp;target=http%3A%2F%2Fv21b2.jurinka.net%3A80%2Fcategories%2Fevents&amp;DeliveryType=VIEW" method="post">
+<div>
+<input type="hidden" value="VQUGKOKH0S3I" name="TransientKey" id="Form_TransientKey"><input type="hidden" style="display: none;" value="" name="hpt" id="Form_hpt"><div class="P">Are you sure you want to delete this discussion?</div><div class="Buttons Buttons-Confirm"><input type="submit" class="Button Primary" value="OK" name="OK" id="Form_OK">
+<input type="button" class="Button Close" value="Cancel" name="Cancel" id="Form_Cancel">
+<div></div>
+</div></div></form></div>           <div class="Footer" style="display: block;">             <a class="Close" href="#"><span>×</span></a>           </div>         </div>       </div>     </div>   </div>
+*/
