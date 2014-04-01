@@ -1,3 +1,6 @@
+Important: Edit current source because model should return standard $Discussion object  
+
+  
   
 # TODO (order shows prio)    
 List is old - must be worked over  
