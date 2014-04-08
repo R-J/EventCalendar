@@ -9,7 +9,7 @@
 $PluginInfo['EventCalendar'] = array(
    'Name' => 'Event Calendar',
    'Description' => 'Adds an event date field to new discussions so that they can be treated as events',
-   'Version' => '0.1',
+   'Version' => '0.2.1',
    'RequiredApplications' => array('Vanilla' => '>=2.0.18'),
    'SettingsUrl' => '/settings/eventcalendar',   
    'RequiredPlugins' => FALSE,
