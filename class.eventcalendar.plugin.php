@@ -5,6 +5,8 @@
  * 
  * @author Robin
  * @license http://opensource.org/licenses/MIT
+ *
+ * @update 2015-06-25: shumoo replaced drop down fields with jquery datepicker
  */
 $PluginInfo['EventCalendar'] = array(
    'Name' => 'Event Calendar',
@@ -126,6 +128,9 @@ class EventCalendarPlugin extends Gdn_Plugin {
       }
 
       $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
+	  $Sender->AddCssFile('eventcalendar.css', 'plugins/EventCalendar');
+	  $Sender->AddCssFile('jquery-ui.css', 'plugins/EventCalendar');	  	
+	  $Sender->AddJsFile('jquery-ui.js', 'plugins/EventCalendar');
       $Sender->AddDefinition('EventCalendarCategoryIDs', json_encode(C('Plugins.EventCalendar.CategoryIDs')));
 
       // initially don't hide elements in allowed categories
@@ -133,16 +138,20 @@ class EventCalendarPlugin extends Gdn_Plugin {
       if (!in_array($CategoryID, C('Plugins.EventCalendar.CategoryIDs'))) {
          $Hidden = ' Hidden';   
       }
-
-      $Year = date('Y');
-      $YearRange = $Year.'-'.($Year + 1);
+	  
+	  //Removed when switching drop down fields to a date picker
+      //$Year = date('Y');
+      //$YearRange = $Year.'-'.($Year + 1);
 
       $HtmlOut = <<< EOT
 <div class="P EventCalendarInput{$Hidden}">
-   {$Sender->Form->Label('Event Date', 'EventCalendarDate')}
-   {$Sender->Form->Date('EventCalendarDate', array('YearRange' => $YearRange, 'fields' => array('day', 'month', 'year')))}
+   {$Sender->Form->Label('Event Date', 'EventCalendarDate')}  
+	//Updated when switching drop down fields to a date picker
+   {$Sender->Form->Input('EventCalendarDate', 'EventCalendarDate')}
 </div>
 EOT;
+//{$Sender->Form->Date('EventCalendarDate', array('YearRange' => $YearRange, 'fields' => array('day', 'month', 'year')))} //from above
+
       echo $HtmlOut;
    } // End of PostController_BeforeBodyInput_Handler
 
@@ -154,16 +163,19 @@ EOT;
    public function DiscussionModel_BeforeSaveDiscussion_Handler($Sender) {
       $Session = Gdn::Session();
       $CategoryID = $Sender->EventArguments['FormPostValues']['CategoryID'];
-
       // Reset event date and return if wrong category or no right to add event
       if (!in_array($CategoryID, C('Plugins.EventCalendar.CategoryIDs')) || !$Session->CheckPermission(array('Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'))) {
          $Sender->EventArguments['FormPostValues']['EventCalendarDate'] = '';
          return;
-      }
+      }	  
+	  //formatting the date correctly since datepicker uses a different format
+	  $time = strtotime($Sender->EventArguments['FormPostValues']['EventCalendarDate']);	  
+	  $formatted_date = date('Y-m-d',$time);	  
+	  $Sender->EventArguments['FormPostValues']['EventCalendarDate'] = $formatted_date;  
 
       // Add custom validation text
       $Sender->Validation->ApplyRule('EventCalendarDate', 'Required', T('Please enter an event date'));
-      $Sender->Validation->ApplyRule('EventCalendarDate', 'Date', T('The event date you\'ve entered is invalid'));
+      $Sender->Validation->ApplyRule('EventCalendarDate', 'Date', T('The event date you\'ve entered is invalid'.'<pre>'.$Sender->EventArguments['FormPostValues']['EventCalendarDate'].' formatted to '.$formatted_date.'</pre>'));
    } // End of DiscussionModel_BeforeSaveDiscussion_Handler
 
    /**
@@ -176,7 +188,7 @@ EOT;
       if(!CheckPermission(array('Plugins.EventCalendar.View'))) {
          return;
       }
-      if ($EventDate != '0000-00-00') {
+      if ($EventDate != '0000-00-00' & !is_null($EventDate))  {
          if ($IncludeIcon) {
             $Icon = '<img src="'.SmartAsset('/plugins/EventCalendar/design/images', TRUE).'/eventcalendar.png" />';
          } else {
@@ -225,8 +237,10 @@ EOT;
       $Sender->ClearCssFiles();
       $Sender->AddCssFile('style.css');
       $Sender->AddCssFile('eventcalendar.css', 'plugins/EventCalendar');
-      $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
-      $Sender->MasterView = 'default';
+	     
+	  $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
+	        
+	  $Sender->MasterView = 'default';
       $Sender->AddModule('NewDiscussionModule');
       $Sender->AddModule('CategoriesModule');
       $Sender->AddModule('BookmarkedModule');

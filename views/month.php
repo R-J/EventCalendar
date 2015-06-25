@@ -74,7 +74,7 @@ for ($Day = $MonthFirst; $Day <= $MonthLast; $Day += 86400) {
                   <div class="Meta DiscussionMeta">
                      <span class="MItem DateEvent">
                         <?php
-                        echo T('Event on ').Anchor(Gdn_Format::Date($Event['EventCalendarDate'], 'html'), $Event['Url'], 'Permalink', array('rel' => 'nofollow'));
+                        echo T('Event on ').Anchor(Gdn_Format::Date($Event['EventCalendarDate'], 'html'), $Event['Url'], 'Permalink', array('rel' => 'nofollow'));						
                         ?>
                      </span>
                      <span class="MItem DateCreated">
