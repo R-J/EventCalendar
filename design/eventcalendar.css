@@ -49,11 +49,11 @@
 
 li.Sunday {
    background-color: #CFECFF;
-   color: #red;
+   color: red;
 }
 li.Sunday > a {
    /* background-color: #CFECFF; */
-   color: #red;
+   color: red;
 }
 dl {
    margin-right: 10px;

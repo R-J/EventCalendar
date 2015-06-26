@@ -130,7 +130,7 @@ class EventCalendarPlugin extends Gdn_Plugin {
       $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
 	  $Sender->AddCssFile('eventcalendar.css', 'plugins/EventCalendar');
 	  $Sender->AddCssFile('jquery-ui.css', 'plugins/EventCalendar');	  	
-	  $Sender->AddJsFile('jquery-ui.js', 'plugins/EventCalendar');
+	  $Sender->AddJsFile('jquery-ui-1.10.0.custom.min.js', 'js/library');
       $Sender->AddDefinition('EventCalendarCategoryIDs', json_encode(C('Plugins.EventCalendar.CategoryIDs')));
 
       // initially don't hide elements in allowed categories
@@ -188,7 +188,7 @@ EOT;
       if(!CheckPermission(array('Plugins.EventCalendar.View'))) {
          return;
       }
-      if ($EventDate != '0000-00-00' & !is_null($EventDate))  {
+      if ($EventDate != '0000-00-00' && !is_null($EventDate))  {
          if ($IncludeIcon) {
             $Icon = '<img src="'.SmartAsset('/plugins/EventCalendar/design/images', TRUE).'/eventcalendar.png" />';
          } else {
