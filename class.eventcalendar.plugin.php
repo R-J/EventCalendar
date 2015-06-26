@@ -128,9 +128,8 @@ class EventCalendarPlugin extends Gdn_Plugin {
       }
 
       $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
-	  $Sender->AddCssFile('eventcalendar.css', 'plugins/EventCalendar');
-	  $Sender->AddCssFile('jquery-ui.css', 'plugins/EventCalendar');	  	
-	  $Sender->AddJsFile('jquery-ui-1.10.0.custom.min.js', 'js/library');
+      $Sender->AddCssFile('jquery-ui.css', 'plugins/EventCalendar');
+      $Sender->AddJsFile('jquery-ui-1.10.0.custom.min.js', 'js/library');
       $Sender->AddDefinition('EventCalendarCategoryIDs', json_encode(C('Plugins.EventCalendar.CategoryIDs')));
 
       // initially don't hide elements in allowed categories
@@ -138,20 +137,12 @@ class EventCalendarPlugin extends Gdn_Plugin {
       if (!in_array($CategoryID, C('Plugins.EventCalendar.CategoryIDs'))) {
          $Hidden = ' Hidden';   
       }
-	  
-	  //Removed when switching drop down fields to a date picker
-      //$Year = date('Y');
-      //$YearRange = $Year.'-'.($Year + 1);
-
       $HtmlOut = <<< EOT
 <div class="P EventCalendarInput{$Hidden}">
-   {$Sender->Form->Label('Event Date', 'EventCalendarDate')}  
-	//Updated when switching drop down fields to a date picker
+   {$Sender->Form->Label('Event Date', 'EventCalendarDate')}
    {$Sender->Form->Input('EventCalendarDate', 'EventCalendarDate')}
 </div>
 EOT;
-//{$Sender->Form->Date('EventCalendarDate', array('YearRange' => $YearRange, 'fields' => array('day', 'month', 'year')))} //from above
-
       echo $HtmlOut;
    } // End of PostController_BeforeBodyInput_Handler
 
@@ -163,19 +154,20 @@ EOT;
    public function DiscussionModel_BeforeSaveDiscussion_Handler($Sender) {
       $Session = Gdn::Session();
       $CategoryID = $Sender->EventArguments['FormPostValues']['CategoryID'];
+
       // Reset event date and return if wrong category or no right to add event
       if (!in_array($CategoryID, C('Plugins.EventCalendar.CategoryIDs')) || !$Session->CheckPermission(array('Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'))) {
          $Sender->EventArguments['FormPostValues']['EventCalendarDate'] = '';
          return;
-      }	  
+      }
 	  //formatting the date correctly since datepicker uses a different format
-	  $time = strtotime($Sender->EventArguments['FormPostValues']['EventCalendarDate']);	  
-	  $formatted_date = date('Y-m-d',$time);	  
-	  $Sender->EventArguments['FormPostValues']['EventCalendarDate'] = $formatted_date;  
+	  $Date = strtotime($Sender->EventArguments['FormPostValues']['EventCalendarDate']);	  
+	  $Formatted_Date = date('Y-m-d',$Date);	  
+	  $Sender->EventArguments['FormPostValues']['EventCalendarDate'] = $Formatted_Date;
 
       // Add custom validation text
       $Sender->Validation->ApplyRule('EventCalendarDate', 'Required', T('Please enter an event date'));
-      $Sender->Validation->ApplyRule('EventCalendarDate', 'Date', T('The event date you\'ve entered is invalid'.'<pre>'.$Sender->EventArguments['FormPostValues']['EventCalendarDate'].' formatted to '.$formatted_date.'</pre>'));
+      $Sender->Validation->ApplyRule('EventCalendarDate', 'Date', T('The event date you\'ve entered is invalid'));
    } // End of DiscussionModel_BeforeSaveDiscussion_Handler
 
    /**
@@ -188,7 +180,7 @@ EOT;
       if(!CheckPermission(array('Plugins.EventCalendar.View'))) {
          return;
       }
-      if ($EventDate != '0000-00-00' && !is_null($EventDate))  {
+      if ($EventDate != '0000-00-00') && !is_null($EventDate))  {
          if ($IncludeIcon) {
             $Icon = '<img src="'.SmartAsset('/plugins/EventCalendar/design/images', TRUE).'/eventcalendar.png" />';
          } else {
@@ -237,10 +229,8 @@ EOT;
       $Sender->ClearCssFiles();
       $Sender->AddCssFile('style.css');
       $Sender->AddCssFile('eventcalendar.css', 'plugins/EventCalendar');
-	     
-	  $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
-	        
-	  $Sender->MasterView = 'default';
+      $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
+      $Sender->MasterView = 'default';
       $Sender->AddModule('NewDiscussionModule');
       $Sender->AddModule('CategoriesModule');
       $Sender->AddModule('BookmarkedModule');
