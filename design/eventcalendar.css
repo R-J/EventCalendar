@@ -71,11 +71,12 @@ dt {
    text-overflow: ellipsis;
 
    background-color: #fff;
+   color: #000;
    border: 1px solid #ABDAFB;
    font-size: smaller;
 }
 
-dd {
+dt + dd {
    display: none;
 }
 
@@ -89,4 +90,10 @@ dt:hover + dd {
    left: 10%;
    display: inline;
    max-height: 30px;
+}
+
+.EventPopup {
+	background-color: rgba(0,0,0,0.4);
+	width: 20em;
+	
 }

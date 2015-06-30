@@ -7,12 +7,12 @@ $(document).ready(function() {
       $('#Form_EventCalendarDate_Year').val(now.getFullYear());
    }
    // toggle visibility of Calendar date depending on #Form_CategoryID
-   var EventCalendarCategoryIDs = jQuery.parseJSON(gdn.definition('EventCalendarCategoryIDs'));
+   var EventCalendarCategoryIDs = jQuery.parseJSON(gdn.definition('EventCalendarCategoryIDs'));	   $('#Form_CategoryID').ready(function() {      if (EventCalendarCategoryIDs.indexOf($('#Form_CategoryID').val()) > -1) {         $('.EventCalendarInput').removeClass('Hidden');      } else {         $('.EventCalendarInput').addClass('Hidden');      }   });			
    $('#Form_CategoryID').change(function() {
       if (EventCalendarCategoryIDs.indexOf($('#Form_CategoryID').val()) > -1) {
          $('.EventCalendarInput').removeClass('Hidden');
       } else {
          $('.EventCalendarInput').addClass('Hidden');
       }
-   });
+   });     $(function() {	      $( "#Form_EventCalendarDate" ).datepicker();	  });  
 });

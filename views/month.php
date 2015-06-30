@@ -1,5 +1,7 @@
 <?php if (!defined('APPLICATION')) exit(); 
-
+/*
+	Added the day of the week name to each calendar block
+*/
 $UserPhotoFirst = C('Vanilla.Comment.UserPhotoFirst', TRUE);
 
 $Year = $this->Data('Year');
@@ -31,7 +33,7 @@ for ($Day = $MonthFirst; $Day <= $MonthLast; $Day += 86400) {
    $DayNumber = date('j', $Day);
    $WeekDay = date('l', $Day);
 ?>
-   <li class="Day <?php echo $WeekDay;?>">
+   <li class="Day <?php echo $WeekDay;?>" style="border-radius: 5px"><div style="position: absolute;"><p><?php echo $WeekDay;?></p></div>
       <a href="<?php echo "{$Domain}eventcalendar/$Year/$Month/$DayNumber";?>" class="DayLink"><?php echo $DayNumber;?></a>
 <?php   
    if ($DayNumber == $EventDay) {
@@ -74,7 +76,7 @@ for ($Day = $MonthFirst; $Day <= $MonthLast; $Day += 86400) {
                   <div class="Meta DiscussionMeta">
                      <span class="MItem DateEvent">
                         <?php
-                        echo T('Event on ').Anchor(Gdn_Format::Date($Event['EventCalendarDate'], 'html'), $Event['Url'], 'Permalink', array('rel' => 'nofollow'));
+                        echo T('Event on ').Anchor(Gdn_Format::Date($Event['EventCalendarDate'], 'html'), $Event['Url'], 'Permalink', array('rel' => 'nofollow'));						
                         ?>
                      </span>
                      <span class="MItem DateCreated">
