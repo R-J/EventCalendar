@@ -1,265 +1,351 @@
-<?php if (!defined('APPLICATION')) exit();
+﻿<?php defined('APPLICATION') or die;
 
-/**
- * EventCalendar Plugin
- * 
- * @author Robin
- * @license http://opensource.org/licenses/MIT
- */
 $PluginInfo['EventCalendar'] = array(
-   'Name' => 'Event Calendar',
-   'Description' => 'Adds an event date field to new discussions so that they can be treated as events',
-   'Version' => '0.2.1',
-   'RequiredApplications' => array('Vanilla' => '>=2.0.18'),
-   'SettingsUrl' => '/settings/eventcalendar',   
-   'RequiredPlugins' => FALSE,
-   'RequiredTheme' => FALSE,
-   'MobileFriendly' => TRUE,
-   'HasLocale' => TRUE,
-   'RegisterPermissions' => FALSE,
-   'RegisterPermissions' => array('Plugins.EventCalendar.Add',
-      'Plugins.EventCalendar.Manage',
-      'Plugins.EventCalendar.Notify',
-      'Plugins.EventCalendar.View'),
-   'Author' => 'Robin'
+    'Name' => 'Event Calendar',
+    'Description' => 'Adds an event date field to new discussions so that they can be treated as events',
+    'Version' => '0.3',
+    'RequiredApplications' => array('Vanilla' => '>=2.1'),
+    'SettingsUrl' => '/settings/eventcalendar',   
+    'RequiredPlugins' => false,
+    'RequiredTheme' => false,
+    'MobileFriendly' => true,
+    'HasLocale' => true,
+    'RegisterPermissions' => false,
+    'RegisterPermissions' => array(
+        'Plugins.EventCalendar.Add',
+        'Plugins.EventCalendar.Manage',
+        'Plugins.EventCalendar.Notify',
+        'Plugins.EventCalendar.View'),
+    'Author' => 'Robin Jurinka',
+    'AuthorUrl' => 'http://vanillaforums.org/profile/44046/R_J',
+    'License' => 'MIT'
 );
 
 /**
- * Plugin to add date field to New Discussion
+ * Plugin that adds a date field to new discussions.
  *
- * New discussions could be entered with an "event date".
- * Plugin creates additional views where such discussions are shown on a calendar
+ * New discussions could be entered with an "event date". Plugin creates
+ * additional views where such discussions are shown on a calendar.
+ *
+ * @package EventCalendar
+ * @author Robin Jurinka
+ * @license MIT
  */
 class EventCalendarPlugin extends Gdn_Plugin {
-   
-   /**
-    * Make initial changes to Garden
-    */   
-   public function Setup() {
-      $this->Structure();
-      // sets route to eventcalendar
-      $Router = Gdn::Router();
-      $PluginPage = 'vanilla/eventcalendar$1';
-      $NewRoute = '^eventcalendar(/.*)?$';
-      if(!$Router->MatchRoute($NewRoute)) {
-         $Router->SetRoute($NewRoute, $PluginPage, 'Internal');
-      }
-   } // End of Setup
+    /**
+     * Prepare needed system changes.
+     *
+     * Initiate db structure change and create a custom
+     * route for calendar view.
+     *
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */    
+    public function setup() {
+        // Change db structure.
+        $this->structure();
 
-   /**
-    * Adds column for event date to table Discussion
-    */   
-   public function Structure() {
-      $Structure =  Gdn::Structure();
-      $Structure->Table('Discussion')
-         ->Column('EventCalendarDate', 'date', TRUE)
-         ->Set(FALSE, FALSE);
-   } // End of Structure
+        // Set initial config settings.
+        if (!c('EventCalendar.CustomRoute')) {
+            saveToConfig('EventCalendar.CustomRoute', 'eventcalendar');
+        }
+        
+        // Set custom route to plugin page.
+        $router = Gdn::router();
+        $pluginPage = 'vanilla/eventcalendar$1';
+        $newRoute = '^'.c('EventCalendar.CustomRoute', 'eventcalendar').'(/.*)?$';
+        if (!$router->matchRoute($newRoute)) {
+            $router->setRoute($newRoute, $pluginPage, 'Internal');
+        }
+    }
 
-   /**
-    * Reset some changes made by the plugin
-    */ 
-   public function OnDisable() {
-      // deletes custom route
-      Gdn::Router()-> DeleteRoute('^eventcalendar(/.*)?$');
+    /**
+     * Add event date field to Discussion table.
+     *
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */    
+    public function structure() {
+        Gdn::structure()->table('Discussion')
+            ->column('EventCalendarDate', 'date', true)
+            ->set(false, false);
+    }
+
+    /**
+     * Reset custom route.
+     *
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */  
+    public function onDisable() {
+        Gdn::router()->deleteRoute('^'.c('EventCalendar.CustomRoute', 'eventcalendar').'(/.*)?$');
+    }
+
+    /**
+     * Settings screen to choose categories and set custom url.
+     *
+     * @param object $sender SettingsController.
+     * @return void.
+     * @package EventCalendar
+     * @since 0.3
+     */      
+    public function settingsController_eventCalendar_create($sender) {
+        $sender->permission('Garden.Settings.Manage');
+
+        $sender->title(t('EventCalendar.SettingsTitle'));
+        $sender->addSideMenu('dashboard/settings/plugins');
+        $sender->description('Description', t('EventCalendar.SettingsDescription'));
+        
+        // If CustomRoute has been changed, delete and reset it.
+        if ($sender->Form->authenticatedPostBack()) {
+            $formPostValues = $sender->Form->formValues();
+            $newUrl = $formPostValues['EventCalendar.CustomRoute'];
+            $oldUrl = c('EventCalendar.CustomRoute');
+            if ($oldUrl != $newUrl) {
+                // Delete old custom route.
+                $router = Gdn::router();
+                $router->deleteRoute('^'.$oldUrl.'(/.*)?$');
+                
+                // Set new custom route.
+                $pluginPage = 'vanilla/eventcalendar$1';
+                $newRoute = '^'.$newUrl.'(/.*)?$';
+                if (!$router->matchRoute($newRoute)) {
+                    $router->setRoute($newRoute, $pluginPage, 'Internal');
+                }
+            }
+        }
+       
+        $categories = CategoryModel::categories();  
+        unset($categories[-1]);
+        
+        $configurationModule = new ConfigurationModule($sender);
+        $configurationModule->initialize(array(
+            'EventCalendar.CategoryIDs' => array(
+                'Control' => 'CheckBoxList',
+                'LabelCode' => 'Categories',
+                'Items' => $categories,
+                'Description' => 'Please choose categories in which the creation of events should be allowed',
+                'Options' => array('ValueField' => 'CategoryID', 'TextField' => 'Name')
+            ),
+            'EventCalendar.CustomRoute' => array(
+                'Control' => 'TextBox',
+                'LabelCode' => 'Custom Url',
+                'Description' => 'The event calendar will be accessible under that url'
+            )
+        ));
+        $configurationModule->renderAll();
+    }
+  
+    /**
+     * Add menu entry for calendar to custom menu.
+     *
+     * @param object $sender GardenController.
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */      
+    public function base_render_before($sender) {
+        if (checkPermission('Plugins.EventCalendar.View') && $sender->Menu) {
+            $sender->Menu->addLink(
+                t('EventCalendar'),
+                t('Event Calendar'),
+                c('EventCalendar.CustomRoute', 'eventcalendar')
+            );
+        }
+    }
+
+    /**
+     * Add input fields to New Discussion view.
+     *
+     * Check for custom permission. Allows creation of events in current
+     * and next year.
+     * Datefield is prefilled with current date by eventcalendar.js.
+     *
+     * @param object $sender PostController.
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */      
+    public function postController_beforeBodyInput_handler($sender) {
+        if (!checkPermission(array('Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'))) {
+            return;
+        }
+
+        $sender->addJsFile('eventcalendar.js', 'plugins/EventCalendar');
+        $sender->addDefinition('EventCalendarCategoryIDs', json_encode(C('EventCalendar.CategoryIDs')));
+
+        $categoryID = $sender->Discussion->CategoryID;
+        
+        // initially don't hide elements in allowed categories
+        $cssClass = 'P EventCalendarInput';
+        if (!in_array($categoryID, Gdn::config('EventCalendar.CategoryIDs'))) {
+            $cssClass .= ' Hidden';   
+        }
+
+        $year = date('Y');
+        $yearRange = $year.'-'.($year + 1);
+        $fields = explode(',', Gdn::translate('EventCalendar.DateOrder', 'month,day,year'));
+
+        echo '<div class="', $cssClass, '">';
+        echo $sender->Form->label('Event Date', 'EventCalendarDate');
+        echo $sender->Form->date('EventCalendarDate', array(
+            'YearRange' => $yearRange,
+            'Fields' => $fields
+        ));
+        echo '</div>';
    }
 
-   /**
-    * Allows customization of categories which allow new discussions to be events 
-    * Sets config value Plugins.EventCalendar.CategoryIDs
-    *
-    * @param object $Sender SettingsController
-    */   
-   public function SettingsController_EventCalendar_Create($Sender) {
-      $Sender->Permission('Garden.Settings.Manage');
-      $Sender->Title(T('Event Calendar Settings'));
-      $Sender->AddSideMenu('settings/EventCalendar');
-      $Sender->SetData('Info', T('Event Calendar Info', 'Creation of events can be regulated by category <strong>and</strong> user role. You can set up the categories here, but don\'t forget to assign some permissions in the <a href="/index.php?p=dashboard/role">standard permission section</a> in the dashboard, otherwise you users wouldn\'t be able to use this plugin!'));
-      $Sender->SetData('CategoriesLabel', 'Please choose categories in which the creation of events should be allowed');
+    /**
+     * Check permission and validate event date input.
+     *
+     * @param object $sender DiscussionModel.
+     * @param mixed $args EventArguments.
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */  
+    public function discussionModel_beforeSaveDiscussion_handler($sender, $args) {
+        // Reset event date and return if wrong category or no right to add event.
+        $session = Gdn::session();
+        $categoryID = $args['FormPostValues']['CategoryID'];
+        if (!in_array($categoryID, Gdn::config('Plugins.EventCalendar.CategoryIDs')) || !$session->checkPermission(array('Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'))) {
+            $args['FormPostValues']['EventCalendarDate'] = '';
+            return;
+        }
 
-      $Validation = new Gdn_Validation();
-      // $Validation->ApplyRule('Plugins.EventCalendar.CategoryIDs', 'RequiredArray', T('You have to choose at least one category. If you don\'t want to use the plugin any longer, please deactivate it'));
-      $ConfigurationModel = new Gdn_ConfigurationModel($Validation);
-      $ConfigurationModel->SetField(array('Plugins.EventCalendar.CategoryIDs'));
+        // Add custom validation text.
+        $sender->Validation->applyRule(
+            'EventCalendarDate',
+            'Required',
+            Gdn::translate('EventDate.Required', 'Please enter an event date')
+        );
+        $sender->Validation->applyRule(
+            'EventCalendarDate',
+            'Date',
+            Gdn::translate('EventDate.IsDate', 'The event date you\'ve entered is invalid')
+        );
+    }
 
-      $Form = $Sender->Form;
-      $Sender->Form->SetModel($ConfigurationModel);
+    /**
+     * Return nicely formatted html for an event date.
+     *
+     * @param date $eventDate The date to format.
+     * @param boolean $includeIcon Whether an icon should be included or not.
+     * @return string Formatted event date.
+     * @package EventCalendar
+     * @since 0.1
+     */
+    private function formatEventCalendarDate($eventDate = '0000-00-00', $includeIcon = true) {
+        if (!$eventDate || !checkPermission(array('Plugins.EventCalendar.View')) || !$eventDate || $eventDate == '0000-00-00') {
+            return;
+        }
+        if ($includeIcon) {
+            $icon = '<img src="'.smartAsset('/plugins/EventCalendar/design/images', true).'/eventcalendar.png" />';
+        } else {
+            $icon = '';
+        }
 
-      if ($Sender->Form->AuthenticatedPostBack() != FALSE) {
-         if ($Sender->Form->Save() != FALSE) {
-            $Sender->StatusMessage = T('Saved');
-         }
-      } else {
-         $Sender->Form->SetData($ConfigurationModel->Data);
-      }
+        return sprintf(
+            Gdn::translate('EventCalendar.DateMarkup', '<div class="EventCalendarDate">%2$s On %1$s</div>'),
+            Gdn_Format::date($eventDate, Gdn::translate('EventCalendar.DateFormat', '%A, %e. %B %Y')),
+            $icon
+        );
+    }
 
-      $CategoryModel = new Gdn_Model('Category');
-      $Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1, 'CategoryID <>' => -1));
-      $Sender->EventCategory = C('Plugins.EventCalendar.CategoryIDs');
+    /**
+     * Add event date to discussion.
+     *
+     * @param object $sender DiscussionController.
+     * @param object $args EventArguments.
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */  
+    public function discussionController_afterDiscussionTitle_handler($sender, $args) {
+        echo $this->formatEventCalendarDate($args['Discussion']->EventCalendarDate);
+    }
 
-      $Sender->Render('settings', '', 'plugins/EventCalendar');
-   } // End of SettingsController_EventCalendar_Create
+    /**
+     * Add event date to discussions list.
+     *
+     * @param object $sender DiscussionsController.
+     * @param object $args EventArguments.
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */  
+    public function discussionsController_afterDiscussionTitle_handler($sender, $args) {
+        echo $this->formatEventCalendarDate($args['Discussion']->EventCalendarDate);
+    }
 
+    /**
+     * Add event date to discussion in categories.
+     *
+     * @param object $sender CategoriesController.
+     * @param object $args EventArguments.
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */  
+    public function categoriesController_afterDiscussionTitle_handler($sender, $args) {
+        echo $this->formatEventCalendarDate($args['Discussion']->EventCalendarDate);
+    }
 
-   /**
-    * Adds menu entry for calendar
-    *
-    * @param object $Sender Base Controller
-    */   
-   public function Base_Render_Before($Sender) {
-      if(CheckPermission('Plugins.EventCalendar.View') && $Sender->Menu) {
-         $Sender->Menu->AddLink(T('Event Calendar'), T('EventCalendar'), 'eventcalendar');
-      }
-   }
-   
-   /**
-    * Adds input fields to new discussion form
-    * Check's for CategoryID, Add and Manage category
-    * Allows creation of events in current and next year
-    * Datefield is prefilled with current date by eventcalendar.js
-    *
-    * @param object $Sender PostController
-    */ 
-   public function PostController_BeforeBodyInput_Handler($Sender) {
-      if(!CheckPermission(array('Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'))) {
-         return;
-      }
-
-      $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
-      $Sender->AddDefinition('EventCalendarCategoryIDs', json_encode(C('Plugins.EventCalendar.CategoryIDs')));
-
-      // initially don't hide elements in allowed categories
-      $CategoryID = $Sender->Discussion->CategoryID;
-      if (!in_array($CategoryID, C('Plugins.EventCalendar.CategoryIDs'))) {
-         $Hidden = ' Hidden';   
-      }
-
-      $Year = date('Y');
-      $YearRange = $Year.'-'.($Year + 1);
-
-      $HtmlOut = <<< EOT
-<div class="P EventCalendarInput{$Hidden}">
-   {$Sender->Form->Label('Event Date', 'EventCalendarDate')}
-   {$Sender->Form->Date('EventCalendarDate', array('YearRange' => $YearRange, 'fields' => array('day', 'month', 'year')))}
-</div>
-EOT;
-      echo $HtmlOut;
-   } // End of PostController_BeforeBodyInput_Handler
-
-   /**
-    *  Add Validation for event date and check permissions
-    *
-    * @param object $Sender DiscussionModel
-    */
-   public function DiscussionModel_BeforeSaveDiscussion_Handler($Sender) {
-      $Session = Gdn::Session();
-      $CategoryID = $Sender->EventArguments['FormPostValues']['CategoryID'];
-
-      // Reset event date and return if wrong category or no right to add event
-      if (!in_array($CategoryID, C('Plugins.EventCalendar.CategoryIDs')) || !$Session->CheckPermission(array('Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'))) {
-         $Sender->EventArguments['FormPostValues']['EventCalendarDate'] = '';
-         return;
-      }
-
-      // Add custom validation text
-      $Sender->Validation->ApplyRule('EventCalendarDate', 'Required', T('Please enter an event date'));
-      $Sender->Validation->ApplyRule('EventCalendarDate', 'Date', T('The event date you\'ve entered is invalid'));
-   } // End of DiscussionModel_BeforeSaveDiscussion_Handler
-
-   /**
-    * Returns nicely formatted html for an event date 
-    *
-    * @param date $EventDate Date of the event
-    * @return string html string showing the event date (translatable)
-    */ 
-   private function FormatEventCalendarDate($EventDate, $IncludeIcon = FALSE) {
-      if(!CheckPermission(array('Plugins.EventCalendar.View'))) {
-         return;
-      }
-      if ($EventDate != '0000-00-00') {
-         if ($IncludeIcon) {
-            $Icon = '<img src="'.SmartAsset('/plugins/EventCalendar/design/images', TRUE).'/eventcalendar.png" />';
-         } else {
-            $Icon = '';
-         }
-         return Gdn_Format::Date($EventDate, T('EventCalendarDateFormat', "<div id=\"EventCalendarDate\">{$Icon}On %A, %e. %B %Y</div>"));
-      }
-   } // End of FormatEventCalendarDate
-
-   /**
-    * Add event date to discussion title in discussion
-    *
-    * @param object $Sender DiscussionController
-    */    
-   public function DiscussionController_AfterDiscussionTitle_Handler($Sender, $Args) {
-      echo $this->FormatEventCalendarDate($Sender->EventArguments['Discussion']->EventCalendarDate, TRUE);
-   }
-
-   /**
-    * Add event date to discussion title in discussions overview
-    *
-    * @param object $Sender DiscussionsController
-    */    
-   public function DiscussionsController_AfterDiscussionTitle_Handler($Sender){
-      echo $this->FormatEventCalendarDate($Sender->EventArguments['Discussion']->EventCalendarDate, TRUE);
-   }
-
-   /**
-    * Add event date to discussion title in categories overview
-    *
-    * @param object $Sender CategoriesController
-    */    
-   public function CategoriesController_AfterDiscussionTitle_Handler($Sender){
-      echo $this->FormatEventCalendarDate($Sender->EventArguments['Discussion']->EventCalendarDate);
-   }
-
-   /**
-    * Handles different views (only monthly overview by now)
-    *
-    * @param object $Sender VanillaController
-    * @param array $Args /Year/Month to show
-    */    
-   public function VanillaController_EventCalendar_Create($Sender, $Args = array()) {
-      $Sender->Permission('Plugins.EventCalendar.View');
+    /**
+     * Show calendar view.
+     *
+     * @param object $sender VanillaController.
+     * @param array $args /Year/Month to show.
+     * @return void.
+     * @package EventCalendar
+     * @since 0.1
+     */ 
+    public function vanillaController_eventCalendar_create($sender, $args = array()) {
+        $sender->permission('Plugins.EventCalendar.View');
       
-      $Sender->ClearCssFiles();
-      $Sender->AddCssFile('style.css');
-      $Sender->AddCssFile('eventcalendar.css', 'plugins/EventCalendar');
-      $Sender->AddJsFile('eventcalendar.js', 'plugins/EventCalendar');
-      $Sender->MasterView = 'default';
-      $Sender->AddModule('NewDiscussionModule');
-      $Sender->AddModule('CategoriesModule');
-      $Sender->AddModule('BookmarkedModule');
+        // $sender->clearCssFiles();
+        $sender->addCssFile('style.css');
+        $sender->addCssFile('eventcalendar.css', 'plugins/EventCalendar');
+        $sender->addJsFile('eventcalendar.js', 'plugins/EventCalendar');
+        $sender->MasterView = 'default';
+        $sender->addModule('NewDiscussionModule');
+        $sender->addModule('CategoriesModule');
+        $sender->addModule('BookmarkedModule');
 
-      // only show current year +/- 1
-      $Year = $Args[0];
-      $CurrentYear = date('Y');
-      if ($Year < $CurrentYear -1 || $Year > $CurrentYear + 1) {
-         $Year = $CurrentYear;
-      }
-      // sanitize month
-      $Month = sprintf("%02s", $Args[1]);
-      if ($Month < 1 || $Month > 12) {
-         $Month = date('m');
-      }
+        // only show current year +/- 1
+        $year = (int)$args[0];
+        $currentYear = date('Y');
+        if ($year < $currentYear -1 || $year > $currentYear + 1) {
+            $year = $currentYear;
+        }
+        // sanitize month
+        $month = sprintf("%02s", (int)$args[1]);
+        if ($month < 1 || $month > 12) {
+            $month = date('m');
+        }
 
-      $MonthFirst = mktime(0, 0, 0, $Month, 1, $Year);
-      $DaysInMonth = date('t', $MonthFirst);
-      $MonthLast = mktime(0, 0, 0, $Month, $DaysInMonth, $Year);
-      $Sender->CanonicalUrl(Url('eventcalendar', TRUE));
-      $Sender->SetData('Title', T('Event Calendar'));
-      $Sender->SetData('Breadcrumbs', array(array('Name' => T('Event Calendar'), 'Url' => '/eventcalendar')));
-      $Sender->SetData('Month', $Month);
-      $Sender->SetData('Year', $Year);
-      $Sender->SetData('MonthFirst', $MonthFirst);
-      $Sender->SetData('MonthLast', $MonthLast);
-      $Sender->SetData('PreviousMonth', date('Y', $MonthFirst - 1).'/'.date('m', $MonthFirst - 1));
-      $Sender->SetData('NextMonth', date('Y', $MonthLast + 86400).'/'.date('m', $MonthLast + 86400));
-      $Sender->SetData('DaysInMonth', $DaysInMonth);
-      $Sender->SetData('Events', EventCalendarModel::Get("{$Year}-{$Month}-01", "{$Year}-{$Month}-{$DaysInMonth}"));
-
-      $ViewName = 'month';
-      $Sender->Render($ViewName, '', 'plugins/EventCalendar');
-   }
+        $monthFirst = mktime(0, 0, 0, $month, 1, $year);
+        $daysInMonth = date('t', $monthFirst);
+        $monthLast = mktime(0, 0, 0, $month, $daysInMonth, $year);
+        $sender->canonicalUrl(url(Gdn::config('EventCalendar.CustomRoute', 'eventcalendar'), true));
+        $sender->setData('Title', Gdn::translate('Event Calendar'));
+        $sender->setData('Breadcrumbs', array(array(
+            'Name' => Gdn::translate('Event Calendar'),
+            'Url' => $sender->canonicalUrl()
+        )));
+        $sender->setData('Month', $month);
+        $sender->setData('Year', $year);
+        $sender->setData('MonthFirst', $monthFirst);
+        $sender->setData('MonthLast', $monthLast);
+        $sender->setData('PreviousMonth', date('Y', $monthFirst - 1).'/'.date('m', $monthFirst - 1));
+        $sender->setData('NextMonth', date('Y', $monthLast + 86400).'/'.date('m', $monthLast + 86400));
+        $sender->setData('DaysInMonth', $daysInMonth);
+        $sender->setData('Events', EventCalendarModel::get("{$year}-{$month}-01", "{$year}-{$month}-{$daysInMonth}"));
+       
+        $viewName = 'month';
+        $sender->render($viewName, '', 'plugins/EventCalendar');
+    }
 }
-
