@@ -1,4 +1,4 @@
-﻿<?php defined('APPLICATION') or die;
+<?php defined('APPLICATION') or die;
 
 /**
  * Model to get event calendar information.

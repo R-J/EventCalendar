@@ -1,4 +1,4 @@
-﻿$(document).ready(function() {
+$(document).ready(function() {
   // Show custom popups.
   $( '.EventPopup' ).on( 'click', function() {
     var infoContainer = document.getElementById( this.getAttribute( 'href' ).substr(1) );
