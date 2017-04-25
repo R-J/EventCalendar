@@ -13,12 +13,16 @@ $eventDay = date('j', strtotime($event['EventCalendarDate']));
 ?>
 
 <h1 class="CalendarDate">
-  <a href="<?= $this->canonicalUrl(), '/', $this->data('PreviousMonth') ?>">«</a>
-    <?= Gdn_Format::date($this->data('MonthFirst'), t('Calendar for %B %Y')) ?>
-  <a href="<?= $this->canonicalUrl(), '/', $this->data('NextMonth') ?>">»</a>
+  <a href="<?= $this->data('CanonicalUrl'), '/', $this->data('PreviousMonth') ?>"><?= t('PreviousMonth', '&laquo') ?></a>
+    <?= $this->data('Title') ?>
+  <a href="<?= $this->data('CanonicalUrl'), '/', $this->data('NextMonth') ?>"><?= t('NextMonth', '&raquo') ?></a>
 </h1>
 <ol id="MonthlyCalendar">
 <?php
+if (count($events) < 1) {
+    echo 'No events yet';
+    return;
+}
 for ($day = $monthFirst; $day <= $monthLast; $day += 86400) :
     $dayNumber = date('j', $day);
     $weekDay = date('l', $day);
