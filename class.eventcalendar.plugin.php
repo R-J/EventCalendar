@@ -100,9 +100,15 @@ class EventCalendarPlugin extends Gdn_Plugin {
         $sender->addSideMenu('dashboard/settings/plugins');
         $sender->description('Description', t('EventCalendar.SettingsDescription'));
 
-        // If CustomRoute has been changed, delete and reset it.
         if ($sender->Form->authenticatedPostBack()) {
             $formPostValues = $sender->Form->formValues();
+            // Serialize CategoryIDs
+            $sender->Form->setFormValue(
+                'EventCalendar.CategoryIDs',
+                serialize($formPostValues['EventCalendar.CategoryIDs'])
+            );
+
+            // Set new route if needed
             $newUrl = $formPostValues['EventCalendar.CustomRoute'];
             $oldUrl = c('EventCalendar.CustomRoute');
             if ($oldUrl != $newUrl) {
@@ -114,14 +120,18 @@ class EventCalendarPlugin extends Gdn_Plugin {
                 $pluginPage = 'vanilla/eventcalendar$1';
                 $newRoute = '^'.$newUrl.'(/.*)?$';
                 if (!$router->matchRoute($newRoute)) {
-                    $router->setRoute($newRoute, $pluginPage, 'Internal');
+                    $router->setRoute(
+                        $newRoute,
+                        'vanilla/eventcalendar$1',
+                        'Internal'
+                    );
                 }
             }
+
         }
 
         $categories = CategoryModel::categories();
         unset($categories[-1]);
-
         $configurationModule = new ConfigurationModule($sender);
         $configurationModule->initialize([
             'EventCalendar.CategoryIDs' => [
@@ -137,6 +147,7 @@ class EventCalendarPlugin extends Gdn_Plugin {
                 'Description' => 'The event calendar will be accessible under that url'
             ]
         ]);
+
         $configurationModule->renderAll();
     }
 
