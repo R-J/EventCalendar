@@ -127,7 +127,6 @@ class EventCalendarPlugin extends Gdn_Plugin {
                     );
                 }
             }
-
         }
 
         $categories = CategoryModel::categories();
@@ -208,13 +207,14 @@ class EventCalendarPlugin extends Gdn_Plugin {
             'Fields' => $fields
         ]);
         echo '</div>';
-   }
+    }
 
     /**
      * Check permission and validate event date input.
      *
      * @param object $sender DiscussionModel.
-     * @param mixed $args EventArguments.
+     * @param mixed  $args   EventArguments.
+     *
      * @return void.
      * @package EventCalendar
      * @since 0.1
@@ -223,11 +223,10 @@ class EventCalendarPlugin extends Gdn_Plugin {
         // Reset event date and return if wrong category or no right to add event.
         $session = Gdn::session();
         $categoryID = $args['FormPostValues']['CategoryID'];
-        if (!in_array($categoryID, Gdn::config('Plugins.EventCalendar.CategoryIDs')) || !$session->checkPermission(['Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'])) {
+        if (!in_array($categoryID, Gdn::config('EventCalendar.CategoryIDs')) || !$session->checkPermission(['Plugins.EventCalendar.Add', 'Plugins.EventCalendar.Manage'])) {
             $args['FormPostValues']['EventCalendarDate'] = '';
             return;
         }
-
         // Add custom validation text.
         $sender->Validation->applyRule(
             'EventCalendarDate',
@@ -244,8 +243,9 @@ class EventCalendarPlugin extends Gdn_Plugin {
     /**
      * Return nicely formatted html for an event date.
      *
-     * @param date $eventDate The date to format.
+     * @param date    $eventDate   The date to format.
      * @param boolean $includeIcon Whether an icon should be included or not.
+     *
      * @return string Formatted event date.
      * @package EventCalendar
      * @since 0.1
@@ -318,6 +318,8 @@ class EventCalendarPlugin extends Gdn_Plugin {
     public function vanillaController_eventCalendar_create($sender, $args = []) {
         $sender->permission('Plugins.EventCalendar.View');
 
+        $eventCalendarModel = new EventCalendarModel();
+
         // $sender->clearCssFiles();
         $sender->addCssFile('style.css');
         $sender->addCssFile('eventcalendar.css', 'plugins/EventCalendar');
@@ -355,7 +357,9 @@ class EventCalendarPlugin extends Gdn_Plugin {
         $sender->setData('PreviousMonth', date('Y', $monthFirst - 1).'/'.date('m', $monthFirst - 1));
         $sender->setData('NextMonth', date('Y', $monthLast + 86400).'/'.date('m', $monthLast + 86400));
         $sender->setData('DaysInMonth', $daysInMonth);
-        $sender->setData('Events', EventCalendarModel::get("{$year}-{$month}-01", "{$year}-{$month}-{$daysInMonth}"));
+decho($eventCalendarModel->get("{$year}-{$month}-01", "{$year}-{$month}-{$daysInMonth}"));
+
+        $sender->setData('Events', $eventCalendarModel->get("{$year}-{$month}-01", "{$year}-{$month}-{$daysInMonth}"));
         $sender->setData('CanonicalUrl', $sender->canonicalUrl());
         $sender->setData('Title', Gdn_Format::date($monthFirst, t('Calendar for %B %Y')));
 
