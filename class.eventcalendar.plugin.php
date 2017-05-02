@@ -357,8 +357,7 @@ class EventCalendarPlugin extends Gdn_Plugin {
         $sender->setData('PreviousMonth', date('Y', $monthFirst - 1).'/'.date('m', $monthFirst - 1));
         $sender->setData('NextMonth', date('Y', $monthLast + 86400).'/'.date('m', $monthLast + 86400));
         $sender->setData('DaysInMonth', $daysInMonth);
-decho($eventCalendarModel->get("{$year}-{$month}-01", "{$year}-{$month}-{$daysInMonth}"));
-
+        
         $sender->setData('Events', $eventCalendarModel->get("{$year}-{$month}-01", "{$year}-{$month}-{$daysInMonth}"));
         $sender->setData('CanonicalUrl', $sender->canonicalUrl());
         $sender->setData('Title', Gdn_Format::date($monthFirst, t('Calendar for %B %Y')));
