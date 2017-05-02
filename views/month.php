@@ -6,12 +6,7 @@ $monthFirst = $this->data('MonthFirst');
 $monthLast = $this->data('MonthLast');
 $domain = Gdn_Url::WebRoot(true);
 
-$events = $this->data('Events');
-$event = array_shift($events);
-
-$eventDay = date('j', strtotime($event['EventCalendarDate']));
 ?>
-
 <h1 class="CalendarDate">
   <a href="<?= $this->data('CanonicalUrl'), '/', $this->data('PreviousMonth') ?>"><?= t('PreviousMonth', '&laquo') ?></a>
     <?= $this->data('Title') ?>
@@ -19,10 +14,14 @@ $eventDay = date('j', strtotime($event['EventCalendarDate']));
 </h1>
 <ol id="MonthlyCalendar">
 <?php
+$events = $this->data('Events');
 if (count($events) < 1) {
-    echo 'No events yet';
+    echo '<p>No events yet</p>';
     return;
 }
+$event = array_shift($events);
+$eventDay = date('j', strtotime($event['EventCalendarDate']));
+
 for ($day = $monthFirst; $day <= $monthLast; $day += 86400) :
     $dayNumber = date('j', $day);
     $weekDay = date('l', $day);
