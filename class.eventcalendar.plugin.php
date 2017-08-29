@@ -260,6 +260,21 @@ class EventCalendarPlugin extends Gdn_Plugin {
             'Date',
             t('EventDate.IsDate', 'The event date you\'ve entered is invalid')
         );
+        /**
+         * The following code would be useful if events are saved with a time.
+         * For times, users timezones must be considered.
+         */
+        /*
+        // Make date independent from users hour offset.
+        if ($sender->Validation->results()) {
+            return;
+        }
+        // $hourOffset = $session->hourOffset()
+        $args['FormPostValues']['EventCalendarDate'] = Gdn_Format::toDateTime(
+            strtotime($args['FormPostValues']['EventCalendarDate']) -
+            Gdn::session()->User->HourOffset * 3600
+        );
+        */
     }
 
     /**
