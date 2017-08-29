@@ -1,0 +1,26 @@
+﻿<?php
+$Definition['Event Calendar'] = 'Veranstaltungskalender';
+$Definition['Jan'] = 'Januar';
+$Definition['Feb'] = 'Februar';
+$Definition['Mar'] = 'März';
+$Definition['Apr'] = 'April';
+$Definition['May'] = 'Mai';
+$Definition['Jun'] = 'Juni';
+$Definition['Jul'] = 'Juli';
+$Definition['Aug'] = 'August';
+$Definition['Sep'] = 'September';
+$Definition['Oct'] = 'Oktober';
+$Definition['Nov'] = 'November';
+$Definition['Dec'] = 'Dezember';
+$Definition['EventCalendar.DateOrder'] = 'day,month,year';
+$Definition['EventCalendar.SettingsTitle'] = 'Veranstaltungskalender Einstellungen';
+$Definition['EventCalendar.SettingsDescription'] = 'Die Erstellung von Events kann durch die Kategorie und die Benutzerrolle geregelt werden. Die Kategorien können hier eingestellt werden, aber vergiss nicht, die <a href="/index.php?p=dashboard/role">Berechtigungen zu vergeben</a>. Ansonsten werden die Benutzer dieses PlugIn nicht nutzen können.';
+$Definition['Custom Url'] = 'Event Kalender Url';
+$Definition['The event calendar will be accessible under this url'] = 'Der Event Kalender ist unter  dieser url erreichbar';
+$Definition['Please choose categories in which the creation of events should be allowed'] = 'Wähle die Kategorien, in denen es erlaubt ist eine Veranstaltung zu erstellen.';
+$Definition['Event Date'] = 'Veranstaltungsdatum';
+$Definition['EventDate.Required'] = 'Bitte gib ein Veranstaltungsdatum ein.';
+$Definition['EventDate.IsDate'] = 'Das eingegebene Veranstaltungsdatum ist ungültig.';
+$Definition['EventCalendar.DateMarkup'] = '<div class="EventCalendarDate">%2$s Am %1$s</div>';
+$Definition['EventCalendar.DateFormat'] = '%A, %e. %B %Y';
+$Definition['Calendar for %B %Y'] = '%B %Y';
