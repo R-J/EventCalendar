@@ -3,8 +3,8 @@
 $PluginInfo['EventCalendar'] = [
     'Name' => 'Event Calendar',
     'Description' => 'Adds an event date field to new discussions so that they can be treated as events',
-    'Version' => '0.4',
-    'RequiredApplications' => ['Vanilla' => '>=2.1'],
+    'Version' => '0.5.0',
+    'RequiredApplications' => ['Vanilla' => '>=2.3'],
     'SettingsUrl' => '/settings/eventcalendar',
     'RequiredPlugins' => false,
     'RequiredTheme' => false,
@@ -102,15 +102,16 @@ class EventCalendarPlugin extends Gdn_Plugin {
 
         if ($sender->Form->authenticatedPostBack()) {
             $formPostValues = $sender->Form->formValues();
-            // Serialize CategoryIDs
-            $sender->Form->setFormValue(
+
+            // Save serialized CategoryIDs.
+            saveToConfig(
                 'EventCalendar.CategoryIDs',
-                serialize($formPostValues['EventCalendar.CategoryIDs'])
+                serialize($formPostValues['CategoryIDs'])
             );
 
             // Set new route if needed
-            $newUrl = $formPostValues['EventCalendar.CustomRoute'];
-            $oldUrl = c('EventCalendar.CustomRoute');
+            $newUrl = $formPostValues['CustomRoute'];
+            $oldUrl = c('CustomRoute');
             if ($oldUrl != $newUrl) {
                 // Delete old custom route.
                 $router = Gdn::router();
@@ -127,27 +128,36 @@ class EventCalendarPlugin extends Gdn_Plugin {
                     );
                 }
             }
+        } else {
+            $sender->Form->setValue(
+                'CategoryIDs',
+                c('EventCalendar.CategoryIDs')
+            );
+            $sender->Form->setValue(
+                'CustomRoute',
+                c('EventCalendar.CustomRoute')
+            );
         }
 
         $categories = CategoryModel::categories();
         unset($categories[-1]);
-        $configurationModule = new ConfigurationModule($sender);
-        $configurationModule->initialize([
-            'EventCalendar.CategoryIDs' => [
+
+        $sender->setData('Schema', [
+            'CategoryIDs' => [
                 'Control' => 'CheckBoxList',
                 'LabelCode' => 'Categories',
                 'Items' => $categories,
                 'Description' => 'Please choose categories in which the creation of events should be allowed',
                 'Options' => ['ValueField' => 'CategoryID', 'TextField' => 'Name']
             ],
-            'EventCalendar.CustomRoute' => [
+            'CustomRoute' => [
                 'Control' => 'TextBox',
                 'LabelCode' => 'Custom Url',
                 'Description' => 'The event calendar will be accessible under that url'
             ]
         ]);
 
-        $configurationModule->renderAll();
+        $sender->render('settings', '', 'plugins/EventCalendar');
     }
 
     /**
@@ -357,7 +367,7 @@ class EventCalendarPlugin extends Gdn_Plugin {
         $sender->setData('PreviousMonth', date('Y', $monthFirst - 1).'/'.date('m', $monthFirst - 1));
         $sender->setData('NextMonth', date('Y', $monthLast + 86400).'/'.date('m', $monthLast + 86400));
         $sender->setData('DaysInMonth', $daysInMonth);
-        
+
         $sender->setData('Events', $eventCalendarModel->get("{$year}-{$month}-01", "{$year}-{$month}-{$daysInMonth}"));
         $sender->setData('CanonicalUrl', $sender->canonicalUrl());
         $sender->setData('Title', Gdn_Format::date($monthFirst, t('Calendar for %B %Y')));
