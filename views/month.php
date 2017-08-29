@@ -1,4 +1,4 @@
-<?php
+<?php defined('APPLICATION') or die ?>
 $userPhotoFirst = Gdn::config('Vanilla.Comment.UserPhotoFirst', true);
 
 $dayLink = $this->canonicalUrl().'/'.$this->data('Year').'/'.$this->data('Month').'/';
