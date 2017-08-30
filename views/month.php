@@ -5,7 +5,6 @@ $userPhotoFirst = Gdn::config('Vanilla.Comment.UserPhotoFirst', true);
 $dayLink = $this->canonicalUrl().'/'.$this->data('Year').'/'.$this->data('Month').'/';
 $monthFirst = $this->data('MonthFirst');
 $monthLast = $this->data('MonthLast');
-$domain = Gdn_Url::WebRoot(true);
 
 ?>
 <h1 class="CalendarDate">
@@ -17,7 +16,7 @@ $domain = Gdn_Url::WebRoot(true);
 <?php
 $events = $this->data('Events');
 if (count($events) < 1) {
-    echo '<p>No events yet</p>';
+    echo '<p>'.t('No events yet').'</p>';
     return;
 }
 $event = array_shift($events);
@@ -34,11 +33,11 @@ for ($day = $monthFirst; $day <= $monthLast; $day += 86400) :
 <?php
 while ($dayNumber == $eventDay) :
     $user = Gdn::userModel()->getID($event['UserID']);
-?>         
+?>
     <dt><a class="EventPopup" href="#discussion_<?= $event['DiscussionID'] ?>"><?= $event['Name']?></a></dt>
     <dd>
       <div id="discussion_<?= $event['DiscussionID'] ?>">
-        <h2><?= $event['Name'] ?></h2>
+        <h2><?= htmlEsc($event['Name']) ?></h2>
         <div class="Item-Header DiscussionHeader">
           <div class="AuthorWrap">
             <span class="Author">
@@ -54,17 +53,17 @@ while ($dayNumber == $eventDay) :
             </span>
             <span class="AuthorInfo">
             <?php
-              echo wrapIf(htmlspecialchars(val('Title', $user)), 'span', array('class' => 'MItem AuthorTitle'));
-              echo wrapIf(htmlspecialchars(val('Location', $user)), 'span', array('class' => 'MItem AuthorLocation'));
+              echo wrapIf(htmlEsc(val('Title', $user)), 'span', ['class' => 'MItem AuthorTitle']);
+              echo wrapIf(htmlEsc(val('Location', $user)), 'span', ['class' => 'MItem AuthorLocation']);
             ?>
             </span>
         </div>
         <div class="Meta DiscussionMeta">
           <span class="MItem DateEvent">
-          <?= t('Event on ').anchor(Gdn_Format::date($event['EventCalendarDate'], 'html'), $event['Url'], 'Permalink', array('rel' => 'nofollow')) ?>
+            <?= sprintf(t('Event on %s'), strftime(t('EventCalendar.DateFormat', '%A, %e. %B %Y'), strtotime($event['EventCalendarDate']))) ?>
           </span>
           <span class="MItem DateCreated">
-            <?= t('(Created on ').anchor(Gdn_Format::date($event['DateInserted'], 'html'), $event['Url'], 'Permalink', array('rel' => 'nofollow')).')' ?>
+            <?= sprintf(t('Created on %s'), strftime(t('EventCalendar.DateFormat', '%A, %e. %B %Y'), strtotime($event['DateInserted']))) ?>
           </span>
         </div>
       </div>
@@ -78,7 +77,7 @@ while ($dayNumber == $eventDay) :
 endwhile;
 ?>
 </dl>
-<?php endif; ?>
+<?php endif ?>
 </li>
-<?php endfor;?>    
-</ol>  
+<?php endfor?>
+</ol>
