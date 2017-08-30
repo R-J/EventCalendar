@@ -304,7 +304,7 @@ class EventCalendarPlugin extends Gdn_Plugin {
 
         return sprintf(
             t('EventCalendar.DateMarkup', '<div class="EventCalendarDate">%2$s On %1$s</div>'),
-            Gdn_Format::date($eventDate, t('EventCalendar.DateFormat', '%A, %e. %B %Y')),
+            strftime(t('EventCalendar.DateFormat', '%A, %e. %B %Y'), strtotime($eventDate)),
             $icon
         );
     }
@@ -402,7 +402,8 @@ class EventCalendarPlugin extends Gdn_Plugin {
 
         $sender->setData('Events', $eventCalendarModel->get("{$year}-{$month}-01", "{$year}-{$month}-{$daysInMonth}"));
         $sender->setData('CanonicalUrl', $sender->canonicalUrl());
-        $sender->setData('Title', Gdn_Format::date($monthFirst, t('Calendar for %B %Y')));
+
+        $sender->setData('Title', strftime(t('Calendar for %B %Y'), $monthFirst));
 
         $viewName = 'month';
         $sender->render($viewName, '', 'plugins/EventCalendar');
