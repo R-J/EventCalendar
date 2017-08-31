@@ -248,6 +248,13 @@ class EventCalendarPlugin extends Gdn_Plugin {
         ) {
             $args['FormPostValues']['EventCalendarDate'] = '';
             return;
+        }        
+        $timeToCorrect=strtotime($args['FormPostValues']['EventCalendarDate']);
+        if($timeToCorrect)
+        {
+            $userOffset=Gdn::session()->User->HourOffset;
+            $correctedTime=$timeToCorrect-$userOffset*3600+date('Z');
+            $args['FormPostValues']['EventCalendarDate']=  strftime("%Y-%m-%d %H:%M", $correctedTime);
         }
         // Add custom validation text.
         $sender->Validation->applyRule(
