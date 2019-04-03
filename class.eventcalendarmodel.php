@@ -27,7 +27,7 @@ class EventCalendarModel extends VanillaModel {
         } else {
             $beginDate = date('Y-m-d', $beginDate);
         }
-
+		
         $endDate = strtotime($end);
         if ($endDate <= 0) {
             $endDate = date('Y-m-d');
@@ -40,9 +40,8 @@ class EventCalendarModel extends VanillaModel {
         if ($limit == 0) {
             $limit = '';
         }
-
         $sql = Gdn::sql();
-        $sql->select('d.DiscussionID, d.Name, d.Body, d.Format, d.DateInserted, d.EventCalendarDate')
+        $sql->select('d.DiscussionID, d.Name, d.Body, d.Format, d.DateInserted, d.EventCalendarDate, d.EventCalendarDateEnd')
             ->select('d.InsertUserID', '', 'UserID')
             ->from('Discussion d')
             ->where('d.EventCalendarDate >=', $beginDate)

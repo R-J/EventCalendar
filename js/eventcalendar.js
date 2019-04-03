@@ -17,17 +17,17 @@ $(document).ready(function() {
     $('#Form_EventCalendarDate_Month').val(now.getMonth() + 1);
     $('#Form_EventCalendarDate_Year').val(now.getFullYear());
   }
-
   // Toggle visibility of Calendar date depending on #Form_CategoryID.
   var EventCalendarCategoryIDs = gdn.definition('EventCalendarCategoryIDs');
   if ( typeof EventCalendarCategoryIDs !== 'undefined' ) {
-    EventCalendarCategoryIDs = jQuery.parseJSON(EventCalendarCategoryIDs);
+    EventCalendarCategoryIDs = JSON.parse(EventCalendarCategoryIDs);
     $('#Form_CategoryID').change(function() {
       if (EventCalendarCategoryIDs.indexOf($('#Form_CategoryID').val()) > -1) {
-        $('.EventCalendarInput').removeClass('Hidden');
+        $('.EventCalendarInput').removeClass('hidden');
       } else {
-        $('.EventCalendarInput').addClass('Hidden');
+        $('.EventCalendarInput').addClass('hidden');
       }
     });
   }
+  $('#Form_CategoryID').trigger('change');
 });
