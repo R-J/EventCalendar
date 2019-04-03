@@ -14,11 +14,9 @@ if (count($events) < 1) {
 
 $jsEvents = array();
 $i = 0;
-//var_dump($events);
 foreach($events as $event) {
 	$user = Gdn::userModel()->getID($event['UserID']);
 	$color =  "#".Gdn::UserMetaModel()->GetUserMeta($event['UserID'], 'Profile.CouleurAgenda')['Profile.CouleurAgenda'];
-	//var_dump($user->Name);
 	$jsEvents[$i]['user'] = $user->Name;
 	$jsEvents[$i]['userID'] = $event['UserID'];
 	$jsEvents[$i]['DiscussionID'] = $event['DiscussionID'];
@@ -68,8 +66,6 @@ $jsEvents = json_encode($jsEvents);
 			displayEventTime: false,
 			defaultView: 'dayGridMonth',
 			eventClick: function(info) {
-				//console.log(info.event);
-				//console.log(info.event.extendedProps.endDate);
 				$(".fc-day-grid-event").popover('hide');
 				if( typeof(info.event.extendedProps.endDate) !== 'undefined' ) {
 					var dateFormate =  " du " + info.event.extendedProps.startDate + " au " + info.event.extendedProps.endDate;
@@ -101,19 +97,19 @@ $jsEvents = json_encode($jsEvents);
 	
 	<a href="#" id="closeAll" class="btn btn-secondary">Fermer les popups</a>
 	<style type="text/css">
-.fc-day-grid-event .fc-content {
-    white-space: nowrap;
-    overflow: hidden;
-    height: 20px;
-    line-height: 20px;
-    font-size: 14px;
-}
-.popover-body {
+		.fc-day-grid-event .fc-content {
+			white-space: nowrap;
+			overflow: hidden;
+			height: 20px;
+			line-height: 20px;
+			font-size: 14px;
+		}
+		.popover-body {
 
-    padding: 0.5rem 0.75rem;
-    color: #444;
-    max-height: 500px;
-    overflow: auto;
+			padding: 0.5rem 0.75rem;
+			color: #444;
+			max-height: 500px;
+			overflow: auto;
 
-}
+		}
 	</style>

@@ -17,7 +17,6 @@ $(document).ready(function() {
     $('#Form_EventCalendarDate_Month').val(now.getMonth() + 1);
     $('#Form_EventCalendarDate_Year').val(now.getFullYear());
   }
-
   // Toggle visibility of Calendar date depending on #Form_CategoryID.
   var EventCalendarCategoryIDs = gdn.definition('EventCalendarCategoryIDs');
   if ( typeof EventCalendarCategoryIDs !== 'undefined' ) {

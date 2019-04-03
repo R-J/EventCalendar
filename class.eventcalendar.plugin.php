@@ -397,7 +397,6 @@ class EventCalendarPlugin extends Gdn_Plugin {
         if ($month < 1 || $month > 12) {
             $month = date('m');
         }
-
         $monthFirst = mktime(0, 0, 0, $month, 1, $year);
         $daysInMonth = date('t', $monthFirst);
         $monthLast = mktime(0, 0, 0, $month, $daysInMonth, $year);
