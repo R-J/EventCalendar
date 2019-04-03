@@ -69,6 +69,7 @@ class EventCalendarPlugin extends Gdn_Plugin {
     public function structure() {
         Gdn::structure()->table('Discussion')
             ->column('EventCalendarDate', 'date', true)
+			->column('EventCalendarDateEnd', 'date', true)
             ->set(false, false);
     }
 
@@ -199,24 +200,29 @@ class EventCalendarPlugin extends Gdn_Plugin {
         $sender->addJsFile('eventcalendar.js', 'plugins/EventCalendar');
         $sender->addDefinition(
             'EventCalendarCategoryIDs',
-            json_encode(c('EventCalendar.CategoryIDs'))
+            json_encode(unserialize(c('EventCalendar.CategoryIDs')))
         );
 
-        $categoryID = $sender->Discussion->CategoryID;
-
+        $categoryID = $sender->Data['Category']['CategoryID'];
         // initially don't hide elements in allowed categories
         $cssClass = 'P EventCalendarInput';
-        if (!in_array($categoryID, c('EventCalendar.CategoryIDs'))) {
-            $cssClass .= ' Hidden';
+        if (!in_array($categoryID, unserialize(c('EventCalendar.CategoryIDs')))) {
+            $cssClass .= ' hidden';
         }
-
         $year = date('Y');
         $yearRange = $year.'-'.($year + 1);
-        $fields = explode(',', t('EventCalendar.DateOrder', 'month,day,year'));
+        $fields = explode(',', t('EventCalendar.DateOrder', 'day,month,year'));
 
         echo '<div class="', $cssClass, '">';
-        echo $sender->Form->label('Event Date', 'EventCalendarDate');
+        echo $sender->Form->label('Date de début', 'EventCalendarDate');
         echo $sender->Form->date('EventCalendarDate', [
+            'YearRange' => $yearRange,
+            'Fields' => $fields
+        ]);
+        echo '</div>';
+        echo '<div class="', $cssClass, '">';
+        echo $sender->Form->label('Date de fin', 'EventCalendarDateEnd');
+        echo $sender->Form->date('EventCalendarDateEnd', [
             'YearRange' => $yearRange,
             'Fields' => $fields
         ]);
@@ -239,7 +245,7 @@ class EventCalendarPlugin extends Gdn_Plugin {
         if (
             !in_array(
                 $args['FormPostValues']['CategoryID'],
-                c('EventCalendar.CategoryIDs')
+                unserialize(c('EventCalendar.CategoryIDs'))
             ) ||
             !$session->checkPermission([
                 'Plugins.EventCalendar.Add',
@@ -247,8 +253,10 @@ class EventCalendarPlugin extends Gdn_Plugin {
             ])
         ) {
             $args['FormPostValues']['EventCalendarDate'] = '';
+			$args['FormPostValues']['EventCalendarDateEnd'] = '';
             return;
         }
+
         // Add custom validation text.
         $sender->Validation->applyRule(
             'EventCalendarDate',
@@ -260,6 +268,13 @@ class EventCalendarPlugin extends Gdn_Plugin {
             'Date',
             t('EventDate.IsDate', 'The event date you\'ve entered is invalid')
         );
+		
+        $sender->Validation->applyRule(
+            'EventCalendarDateEnd',
+            'Date',
+            t('EventDate.IsDate', 'The event date you\'ve entered is invalid')
+        );
+		
         /**
          * The following code would be useful if events are saved with a time.
          * For times, users timezones must be considered.
@@ -304,7 +319,7 @@ class EventCalendarPlugin extends Gdn_Plugin {
 
         return sprintf(
             t('EventCalendar.DateMarkup', '<div class="EventCalendarDate">%2$s On %1$s</div>'),
-            strftime(t('EventCalendar.DateFormat', '%A, %e. %B %Y'), strtotime($eventDate)),
+            strftime(t('EventCalendar.DateFormat', '%A, %e %B %Y'), strtotime($eventDate)),
             $icon
         );
     }
@@ -399,11 +414,12 @@ class EventCalendarPlugin extends Gdn_Plugin {
         $sender->setData('PreviousMonth', date('Y', $monthFirst - 1).'/'.date('m', $monthFirst - 1));
         $sender->setData('NextMonth', date('Y', $monthLast + 86400).'/'.date('m', $monthLast + 86400));
         $sender->setData('DaysInMonth', $daysInMonth);
-
-        $sender->setData('Events', $eventCalendarModel->get("{$year}-{$month}-01", "{$year}-{$month}-{$daysInMonth}"));
+		
+		$plusUn = $month+1;
+        $sender->setData('Events', $eventCalendarModel->get("{$year}-{$month}-01", "{$year}-{$plusUn}-{$daysInMonth}"));
         $sender->setData('CanonicalUrl', $sender->canonicalUrl());
 
-        $sender->setData('Title', strftime(t('Calendar for %B %Y'), $monthFirst));
+        $sender->setData('Title', strftime(t('Calendrier pour %B %Y'), $monthFirst));
 
         $viewName = 'month';
         $sender->render($viewName, '', 'plugins/EventCalendar');
